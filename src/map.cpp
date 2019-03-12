@@ -2206,6 +2206,28 @@ bool ServerMap::repairBlockLight(v3s16 blockpos,
 	return true;
 }
 
+void ServerMap::backupMap()
+{
+	((MapDatabaseSQLite3 *)dbase)->backupMap();
+}
+
+void ServerMap::restoreMap()
+{
+	std::vector<v3s16> unloaded_blocks;
+	unloadUnreferencedBlocks(&unloaded_blocks);
+	((MapDatabaseSQLite3 *)dbase)->restoreMap();
+
+		// Send map event to client
+	MapEditEvent event;
+	event.type = MEET_OTHER;
+	std::vector<v3s16>::iterator it;
+	for (it = unloaded_blocks.begin();
+			it != unloaded_blocks.end(); ++it)
+		event.modified_blocks.insert(*it);
+	dispatchEvent(&event);
+}
+
+
 MMVManip::MMVManip(Map *map):
 		VoxelManipulator(),
 		m_map(map)

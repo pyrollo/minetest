@@ -1280,36 +1280,19 @@ int ModApiEnvMod::l_forceload_free_block(lua_State *L)
 	return 0;
 }
 
-int ModApiEnvMod::l_mark_block_as_changed(lua_State *L)
+int ModApiEnvMod::l_backup_map(lua_State *L)
 {
 	GET_ENV_PTR;
-
-	v3s16 blockpos = read_v3s16(L, 1);
 	ServerMap *map = &(env->getServerMap());
-/*	MapEditEvent event;
-	event.type = MEET_OTHER;
-	event.modified_blocks.insert(blockpos);
-	map->dispatchEvent(&event);
-*/
-std::vector<v3s16> loaded_blocks;
-map->listAllLoadedBlocks(loaded_blocks);
-for (v3s16 pos : loaded_blocks) {
-	printf("%d\n", pos);
+	map->backupMap();
+	return 0;
 }
-
-/*
-	block->resetModified()
-servermap deleteBlock(pos)
-
-void ServerMap::listAllLoadedBlocks(std::vector<v3s16> &dst)
-
-	void Map::unloadUnreferencedBlocks(std::vector<v3s16> *unloaded_blocks)
-	{
-		timerUpdate(0.0, -1.0, 0, unloaded_blocks);
-	}
-*/
-
- 	return 0;
+int ModApiEnvMod::l_restore_map(lua_State *L)
+{
+	GET_ENV_PTR;
+	ServerMap *map = &(env->getServerMap());
+	map->restoreMap();
+	return 0;
 }
 
 void ModApiEnvMod::Initialize(lua_State *L, int top)
@@ -1358,7 +1341,8 @@ void ModApiEnvMod::Initialize(lua_State *L, int top)
 	API_FCT(transforming_liquid_add);
 	API_FCT(forceload_block);
 	API_FCT(forceload_free_block);
-	API_FCT(mark_block_as_changed);
+	API_FCT(backup_map);
+	API_FCT(restore_map);
 }
 
 void ModApiEnvMod::InitializeClient(lua_State *L, int top)

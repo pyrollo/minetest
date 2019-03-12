@@ -319,6 +319,33 @@ void MapDatabaseSQLite3::listAllLoadableBlocks(std::vector<v3s16> &dst)
 	sqlite3_reset(m_stmt_list);
 }
 
+
+
+void MapDatabaseSQLite3::backupMap()
+{
+	assert(m_database); // Pre-condition
+
+	SQLOK(sqlite3_exec(m_database,
+		"CREATE TABLE IF NOT EXISTS `blocks_backup` AS SELECT * FROM `blocks`;",
+		NULL, NULL, NULL),
+		"Failed to backup map table");
+}
+
+void MapDatabaseSQLite3::restoreMap()
+{
+	assert(m_database); // Pre-condition
+
+	SQLOK(sqlite3_exec(m_database,
+		"DROP TABLE `blocks`;",
+		NULL, NULL, NULL),
+		"Failed to drop map table");
+
+	SQLOK(sqlite3_exec(m_database,
+		"CREATE TABLE `blocks` AS SELECT * FROM `blocks_backup`;",
+		NULL, NULL, NULL),
+		"Failed to restore map table");
+}
+
 /*
  * Player Database
  */

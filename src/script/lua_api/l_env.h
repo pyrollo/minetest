@@ -184,7 +184,8 @@ private:
 	// stops forceloading a position
 	static int l_forceload_free_block(lua_State *L);
 
-	static int l_mark_block_as_changed(lua_State *L);
+	static int l_backup_map(lua_State *L);
+	static int l_restore_map(lua_State *L);
 
 
 public:
