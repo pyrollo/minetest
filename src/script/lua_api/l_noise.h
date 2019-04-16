@@ -79,6 +79,9 @@ class LuaPerlinNoiseMap : public ModApiBase
 	static int l_calc_3d_map(lua_State *L);
 	static int l_get_map_slice(lua_State *L);
 
+	static int l_get_result_size(lua_State *L);
+	static int l_get_result_ptr(lua_State *L);
+
 public:
 	LuaPerlinNoiseMap(NoiseParams *np, s32 seed, v3s16 size);
 

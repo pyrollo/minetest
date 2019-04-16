@@ -299,6 +299,27 @@ int LuaPerlinNoiseMap::l_calc_3d_map(lua_State *L)
 	return 0;
 }
 
+int LuaPerlinNoiseMap::l_get_result_size(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+
+	LuaPerlinNoiseMap *o = checkobject(L, 1);
+	Noise *n = o->noise;
+
+	lua_pushinteger(L, n->sx* n->sy*n->sz);
+	return 1;
+}
+
+int LuaPerlinNoiseMap::l_get_result_ptr(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+
+	LuaPerlinNoiseMap *o = checkobject(L, 1);
+	Noise *n = o->noise;
+
+	lua_pushinteger(L, (long int)n->result);
+	return 1;
+}
 
 int LuaPerlinNoiseMap::l_get_map_slice(lua_State *L)
 {
@@ -323,7 +344,6 @@ int LuaPerlinNoiseMap::l_get_map_slice(lua_State *L)
 
 	return 1;
 }
-
 
 int LuaPerlinNoiseMap::create_object(lua_State *L)
 {
@@ -397,6 +417,8 @@ luaL_Reg LuaPerlinNoiseMap::methods[] = {
 	luamethod_aliased(LuaPerlinNoiseMap, get_3d_map,      get3dMap),
 	luamethod_aliased(LuaPerlinNoiseMap, get_3d_map_flat, get3dMap_flat),
 	luamethod_aliased(LuaPerlinNoiseMap, calc_3d_map,     calc3dMap),
+	luamethod_aliased(LuaPerlinNoiseMap, get_result_ptr,  get_result_ptr),
+	luamethod_aliased(LuaPerlinNoiseMap, get_result_size, get_result_size),
 	luamethod_aliased(LuaPerlinNoiseMap, get_map_slice,   getMapSlice),
 	{0,0}
 };
