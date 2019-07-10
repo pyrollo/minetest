@@ -55,6 +55,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irrlicht_changes/static_text.h"
 #include "client/guiscalingfilter.h"
 #include "guiEditBoxWithScrollbar.h"
+#include "guiText.h"
 #include "intlGUIEditBox.h"
 
 #define MY_CHECKPOS(a,b)													\
@@ -1185,6 +1186,51 @@ void GUIFormSpecMenu::parseField(parserData* data, const std::string &element,
 	errorstream<< "Invalid field element(" << parts.size() << "): '" << element << "'"  << std::endl;
 }
 
+void GUIFormSpecMenu::parseText(parserData* data, const std::string &element)
+{
+	std::vector<std::string> parts = split(element,';');
+	if (parts.size() == 4)
+	{
+		std::vector<std::string> v_pos = split(parts[0],',');
+		std::vector<std::string> v_geom = split(parts[1],',');
+		std::string name = parts[2];
+		std::string text = parts[3];
+
+		MY_CHECKPOS("text",0);
+		MY_CHECKGEOM("text",1);
+
+		// [ Taken from textarea
+		v2s32 pos = pos_offset * spacing;
+		pos.X += stof(v_pos[0]) * (float) spacing.X;
+		pos.Y += stof(v_pos[1]) * (float) spacing.Y + m_btn_height;
+
+		v2s32 geom;
+		geom.X = (stof(v_geom[0]) * (float)spacing.X) - (spacing.X-imgsize.X);
+		geom.Y = (stof(v_geom[1]) * (float)imgsize.Y) - (spacing.Y-imgsize.Y);
+
+		core::rect<s32> rect = core::rect<s32>(pos.X, pos.Y, pos.X+geom.X, pos.Y+geom.Y);
+		// ]
+		if(m_form_src)
+			text = m_form_src->resolveText(text);
+
+		FieldSpec spec(
+			name,
+			utf8_to_wide(unescape_string(text)),
+			L"",
+			258+m_fields.size()
+		);
+
+		spec.ftype = f_Unknown;
+		GUIText *gui_text = new GUIText(
+			spec.flabel.c_str(), Environment, this, spec.fid, rect, m_client, m_tsrc);
+
+		m_fields.push_back(spec);
+
+		return;
+	}
+	errorstream<< "Invalid text element(" << parts.size() << "): '" << element << "'"  << std::endl;
+}
+
 void GUIFormSpecMenu::parseLabel(parserData* data, const std::string &element)
 {
 	std::vector<std::string> parts = split(element,';');
@@ -1879,6 +1925,11 @@ void GUIFormSpecMenu::parseElement(parserData* data, const std::string &element)
 
 	if ((type == "field") || (type == "textarea")){
 		parseField(data,description,type);
+		return;
+	}
+
+	if (type == "text") {
+		parseText(data,description);
 		return;
 	}
 
@@ -3657,6 +3708,11 @@ bool GUIFormSpecMenu::OnEvent(const SEvent& event)
 					s.fdefault = L"Changed";
 					acceptInput(quit_mode_no);
 					s.fdefault = L"";
+				} else if ((s.ftype == f_Unknown) &&
+					(s.fid == event.GUIEvent.Caller->getID())) {
+					s.send = true;
+					acceptInput();
+					s.send = false;
 				}
 			}
 		}
