@@ -168,8 +168,8 @@ const ClientCommandFactory clientCommandFactoryTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_CSM_RESTRICTION_FLAGS",    0, true }, // 0x2A
 	{ "TOCLIENT_PLAYER_SPEED",             0, true }, // 0x2B
 	{ "TOCLIENT_MEDIA_PUSH",               0, true }, // 0x2C (sent over channel 1 too)
-	null_command_factory, // 0x2D
-	null_command_factory, // 0x2E
+	{ "TOCLIENT_SSCSM_ANNOUNCE",           0, true }, // 0x2D //hier
+	{ "TOCLIENT_SSCSM_FILE_BUNCH",         0, true }, // 0x2E
 	{ "TOCLIENT_CHAT_MESSAGE",             0, true }, // 0x2F
 	null_command_factory, // 0x30
 	{ "TOCLIENT_ACTIVE_OBJECT_REMOVE_ADD", 0, true }, // 0x31

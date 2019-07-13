@@ -333,6 +333,10 @@ void Server::handleCommand_Init2(NetworkPacket* pkt)
 
 	SendCSMRestrictionFlags(peer_id);
 
+	// Send sscsm stuff
+	SendSSCSMAnnounce(pkt->getPeerId()); //hier
+	SendSSCSMFiles(pkt->getPeerId());
+
 	// Warnings about protocol version can be issued here
 	if (client->net_proto_version < LATEST_PROTOCOL_VERSION) {
 		SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,

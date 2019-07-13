@@ -52,6 +52,7 @@ class ISoundManager;
 class NodeDefManager;
 //class IWritableCraftDefManager;
 class ClientMediaDownloader;
+class SSCSMFileDownloader;
 struct MapDrawControl;
 class ModChannelMgr;
 class MtEventManager;
@@ -224,6 +225,9 @@ public:
 	void handleCommand_PlayerSpeed(NetworkPacket *pkt);
 	void handleCommand_MediaPush(NetworkPacket *pkt);
 	void handleCommand_MinimapModes(NetworkPacket *pkt);
+
+	void handleCommand_SSCSMAnnounce(NetworkPacket *pkt); //hier
+	void handleCommand_SSCSMFileBunch(NetworkPacket *pkt);
 
 	void ProcessData(NetworkPacket *pkt);
 
@@ -544,6 +548,8 @@ private:
 	ClientMediaDownloader *m_media_downloader;
 	// Set of media filenames pushed by server at runtime
 	std::unordered_set<std::string> m_media_pushed_files;
+
+	SSCSMFileDownloader *m_sscsm_file_downloader; //hier
 
 	// time_of_day speed approximation for old protocol
 	bool m_time_of_day_set = false;

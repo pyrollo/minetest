@@ -23,6 +23,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/camera.h"
 #include "chatmessage.h"
 #include "client/clientmedia.h"
+#include "client/sscsmfiledownloader.h"
 #include "log.h"
 #include "map.h"
 #include "mapsector.h"
@@ -1527,6 +1528,50 @@ void Client::handleCommand_MediaPush(NetworkPacket *pkt)
 	// Cache file for the next time when this client joins the same server
 	if (cached)
 		clientMediaUpdateCache(raw_hash, filedata);
+}
+
+void Client::handleCommand_SSCSMAnnounce(NetworkPacket *pkt) //hier
+{
+	/*
+		u16 total number of sscsms
+		for all sscsms (in correct loading order) {
+			std::string name
+		}
+	*/
+	u16 sscsms_count;
+	*pkt >> sscsms_count;
+	std::vector<std::string> sscsms(sscsms_count);
+	for (; sscsms_count > 0; sscsms_count--) {
+		std::string modname;
+		*pkt >> modname;
+		sscsms.push_back(modname);
+	}
+	// todo: save the sscsm list and use it
+}
+
+void Client::handleCommand_SSCSMFileBunch(NetworkPacket *pkt) //hier
+{
+	/*
+		u32 total number of file bunches
+		u32 index of this file bunch
+		u32 length of this bunch {
+			u8 compressed data
+		}
+	*/
+	u32 file_bunches_count, i;
+	u32 size;
+	*pkt >> file_bunches_count >> i >> size;
+
+	u8 *buffer = new u8[size];
+	for (u32 i = 0; i < size; i++) // todo: there might be a more efficient way to copy this
+		*pkt >> buffer[i];
+
+	if (!m_sscsm_file_downloader)
+		m_sscsm_file_downloader = new SSCSMFileDownloader(file_bunches_count);
+
+	bool finished = m_sscsm_file_downloader->addBunch(i, buffer, size);
+	if (finished)
+		delete m_sscsm_file_downloader;
 }
 
 /*
