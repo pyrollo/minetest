@@ -20,7 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "voxelalgorithms.h"
 #include "nodedef.h"
 #include "mapblock.h"
-#include "map.h"
+#include "servermap.h"
 
 namespace voxalgo
 {
@@ -1331,4 +1331,3 @@ s16 VoxelLineIterator::getIndex(v3s16 voxel){
 }
 
 } // namespace voxalgo
-

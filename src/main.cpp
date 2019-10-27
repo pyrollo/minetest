@@ -24,6 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "debug.h"
 #include "unittest/test.h"
 #include "server.h"
+#include "servermap.h"
 #include "filesys.h"
 #include "version.h"
 #include "client/game.h"

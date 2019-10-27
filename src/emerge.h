@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "irr_v3d.h"
 #include "util/container.h"
 #include "mapgen/mapgen.h" // for MapgenParams
-#include "map.h"
+#include "servermap.h"
 
 #define BLOCK_EMERGE_ALLOW_GEN   (1 << 0)
 #define BLOCK_EMERGE_FORCE_QUEUE (1 << 1)

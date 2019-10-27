@@ -24,7 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "common/c_converter.h"
 #include "emerge.h"
 #include "environment.h"
-#include "map.h"
+#include "servermap.h"
 #include "mapblock.h"
 #include "server.h"
 #include "mapgen/mapgen.h"
@@ -166,7 +166,7 @@ int LuaVoxelManip::l_update_liquids(lua_State *L)
 
 	LuaVoxelManip *o = checkobject(L, 1);
 
-	Map *map = &(env->getMap());
+	ServerMap *map = &(env->getServerMap());
 	const NodeDefManager *ndef = getServer(L)->getNodeDefManager();
 	MMVManip *vm = o->vm;
 

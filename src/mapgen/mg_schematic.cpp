@@ -24,7 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "server.h"
 #include "mapgen.h"
 #include "emerge.h"
-#include "map.h"
+#include "servermap.h"
 #include "mapblock.h"
 #include "log.h"
 #include "util/numeric.h"

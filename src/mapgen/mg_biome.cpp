@@ -23,7 +23,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "emerge.h"
 #include "server.h"
 #include "nodedef.h"
-#include "map.h" //for MMVManip
+#include "servermap.h" //for MMVManip
 #include "util/numeric.h"
 #include "porting.h"
 #include "settings.h"
@@ -315,7 +315,7 @@ Biome *BiomeGenOriginal::calcBiomeFromNoise(float heat, float humidity, v3s16 po
 			pos.Y - biome_closest_blend->max_pos.Y)
 		return biome_closest_blend;
 
-	return (biome_closest) ? biome_closest : (Biome *)m_bmgr->getRaw(BIOME_NONE);	
+	return (biome_closest) ? biome_closest : (Biome *)m_bmgr->getRaw(BIOME_NONE);
 }
 
 

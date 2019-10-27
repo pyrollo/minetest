@@ -29,6 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "scripting_server.h"
 #include "environment.h"
 #include "mapblock.h"
+#include "servermap.h"
 #include "server.h"
 #include "nodedef.h"
 #include "daynightratio.h"
@@ -1253,7 +1254,7 @@ int ModApiEnvMod::l_transforming_liquid_add(lua_State *L)
 	GET_ENV_PTR;
 
 	v3s16 p0 = read_v3s16(L, 1);
-	env->getMap().transforming_liquid_add(p0);
+	env->getServerMap().transforming_liquid_add(p0);
 	return 1;
 }
 

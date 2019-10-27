@@ -581,7 +581,7 @@ void Server::AsyncRunStep(bool initial_step)
 		ScopeProfiler sp(g_profiler, "Server: liquid transform");
 
 		std::map<v3s16, MapBlock*> modified_blocks;
-		m_env->getMap().transformLiquids(modified_blocks, m_env);
+		m_env->getServerMap().transformLiquids(modified_blocks, m_env);
 
 		/*
 			Set the modified blocks unsent for all the clients
@@ -896,7 +896,7 @@ void Server::AsyncRunStep(bool initial_step)
 			}
 
 			// Save changed parts of map
-			m_env->getMap().save(MOD_STATE_WRITE_NEEDED);
+			m_env->getServerMap().save(MOD_STATE_WRITE_NEEDED);
 
 			// Save players
 			m_env->saveLoadedPlayers();

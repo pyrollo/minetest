@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "noise.h"
 #include "mapblock.h"
 #include "mapnode.h"
-#include "map.h"
+#include "servermap.h"
 #include "content_sao.h"
 #include "nodedef.h"
 #include "voxelalgorithms.h"

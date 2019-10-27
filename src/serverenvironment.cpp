@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "nodedef.h"
 #include "nodemetadata.h"
 #include "gamedef.h"
-#include "map.h"
+#include "servermap.h"
 #include "porting.h"
 #include "profiler.h"
 #include "raycast.h"

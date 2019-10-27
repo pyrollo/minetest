@@ -32,7 +32,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "constants.h"
 #include "environment.h"
 #include "log.h"
-#include "map.h"
 #include "mapblock.h"
 #include "mapgen/mg_biome.h"
 #include "mapgen/mg_ore.h"

@@ -26,7 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "noise.h"
 #include "mapblock.h"
 #include "mapnode.h"
-#include "map.h"
+#include "servermap.h"
 //#include "serverobject.h"
 #include "content_sao.h"
 #include "nodedef.h"
@@ -780,7 +780,7 @@ void MapgenV6::flowMud(s16 &mudflow_minpos, s16 &mudflow_maxpos)
 		v3s16(0, 0, -1), // Front
 		v3s16(-1, 0, 0), // Left
 	};
-	
+
 	// Iterate twice
 	for (s16 k = 0; k < 2; k++) {
 		for (s16 z = mudflow_minpos; z <= mudflow_maxpos; z++)

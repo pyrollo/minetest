@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "noise.h"
 #include "mapblock.h"
 #include "mapnode.h"
-#include "map.h"
+#include "servermap.h"
 #include "nodedef.h"
 #include "settings.h"
 
@@ -71,7 +71,7 @@ DungeonGen::DungeonGen(const NodeDefManager *ndef,
 		dp.num_dungeons        = 1;
 		dp.notifytype          = GENNOTIFY_DUNGEON;
 
-		dp.np_alt_wall = 
+		dp.np_alt_wall =
 			NoiseParams(-0.4, 1.0, v3f(40.0, 40.0, 40.0), 32474, 6, 1.1, 2.0);
 	}
 }
