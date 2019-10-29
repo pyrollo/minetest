@@ -36,6 +36,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "mesh.h"
 #include "wieldmesh.h"
 #include "client/renderingengine.h"
+#include "client/minimap.h"
 
 #ifdef HAVE_TOUCHSCREENGUI
 #include "gui/touchscreengui.h"
@@ -363,6 +364,16 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				text = unescape_translate(utf8_to_wide(os.str()));
 				pos.Y += text_height;
 				font->draw(text.c_str(), size + pos, color);
+				break; }
+			case HUD_ELEM_MINIMAP: {
+				// Draw a minimap of size "scale"
+				core::rect<s32> rect(0, 0, e->scale.X, e->scale.Y);
+				v2s32 offset(
+						(e->align.X - 1.0) * e->scale.X / 2,
+						(e->align.Y - 1.0) * e->scale.Y / 2);
+				rect += pos + offset + v2s32(e->offset.X * m_hud_scaling,
+						e->offset.Y * m_hud_scaling);
+				client->getMinimap()->drawMinimap(rect);
 				break; }
 			default:
 				infostream << "Hud::drawLuaElements: ignoring drawform " << e->type <<
