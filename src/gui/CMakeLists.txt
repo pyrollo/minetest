@@ -23,6 +23,8 @@ set(gui_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/guiVolumeChange.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/intlGUIEditBox.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/modalMenu.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ParsedText.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/TextDrawer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/profilergraph.cpp
 	PARENT_SCOPE
 )
