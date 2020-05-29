@@ -20,6 +20,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "client/fontengine.h"
 #include <typeinfo>
 
+// Style list management
+
+void lower(std::string str)
+{
+	for(size_t index=0;index < str.size();index++)
+		str[index]=tolower(str[index]);
+}
+
 std::string TextDrawer::StyleList::get(std::string name)
 {
 	try {
@@ -31,6 +39,7 @@ std::string TextDrawer::StyleList::get(std::string name)
 
 void TextDrawer::StyleList::set(std::string name, std::string value)
 {
+	lower(value); // All values are lowercase
 	m_styles[name] = value;
 };
 
@@ -55,6 +64,7 @@ void TextDrawer::StyleList::copyTo(StyleList &styles)
 		if (style.second != "")
 			styles.set(style.first, style.second);
 }
+
 /*
 bool check_color(const std::string &str)
 {
@@ -84,7 +94,7 @@ ParsedText::Element *GUIHyperText::getElementAt(s32 X, s32 Y)
 */
 
 TextDrawer::TextFragment::TextFragment(ParsedText::TextFragment *fragment) :
-	Item(DT_INLINE), font(nullptr), underline(false), strikethrough(false)
+	Item(DT_INLINE_BLOCK), font(nullptr), underline(false), strikethrough(false)
 {
 	if (fragment->omissible)
 		display_type = DT_OMISSIBLE;
@@ -177,7 +187,7 @@ void TextDrawer::Container::applyStyles(StyleList styles) {
 void TextDrawer::Container::layout(Dim size) {
 	// Here, we place words and inline content
 
-	// Take not only direct children but all descendant in DT_STYLE elements
+	// Take not only direct children but all descendant in DT_INLINE elements
 	std::vector<Item *> items;
 	populatePlaceableChildren(&items);
 	float y = 0;
@@ -208,7 +218,7 @@ void TextDrawer::Container::layout(Dim size) {
 		u32 itemswidth = 0; // Total displayed item width (used for justification)
 
 		while (item != items.end()) {
-			if ((*item)->display_type == DT_BLOC) {
+			if ((*item)->display_type == DT_BLOCK) {
 				// Ends ongoing line.
 				if (itemswidth > 0)
 					break;
@@ -222,7 +232,7 @@ void TextDrawer::Container::layout(Dim size) {
 			}
 
 			if ((*item)->display_type == DT_OMISSIBLE ||
-					(*item)->display_type == DT_INLINE) {
+					(*item)->display_type == DT_INLINE_BLOCK) {
 
 				(*item)->layout(Dim(linewidth, size.Height));
 
@@ -231,7 +241,7 @@ void TextDrawer::Container::layout(Dim size) {
 
 				itemswidth += (*item)->dim.Width;
 
-				if ((*item)->display_type == DT_INLINE)
+				if ((*item)->display_type == DT_INLINE_BLOCK)
 					lineend = item;
 
 				if (lineheight < (*item)->dim.Height)
@@ -307,8 +317,8 @@ void TextDrawer::Container::draw(irr::video::IVideoDriver *driver,
 
 	core::rect<s32> rect(newoffset, dim);
 
-	// DT_STYLE is not really placed but has drawable child
-	if (display_type != DT_STYLE && !rect.isRectCollided(clip_rect))
+	// DT_INLINE is not really placed but has drawable child
+	if (display_type != DT_INLINE && !rect.isRectCollided(clip_rect))
 		return;
 
 	for (auto &item: children)
@@ -318,23 +328,25 @@ void TextDrawer::Container::draw(irr::video::IVideoDriver *driver,
 void TextDrawer::Container::populatePlaceableChildren(std::vector<Item *> *placeablechildren)
 {
 	for (auto &child: children)
-		if (child->display_type == DT_STYLE)
+		if (child->display_type == DT_INLINE)
 			child->populatePlaceableChildren(placeablechildren);
 		else
 			placeablechildren->push_back(child.get());
 }
 
+TextDrawer::Item *TextDrawer::ItemFactory::newItem(
+		ParsedText::AttrsList attrs, StyleList *current_styles) {
+	for (auto style: m_styles)
+		if (style.second != "")
+			current_styles->set(style.first, style.second);
+	Item *item = create(attrs, current_styles);
+	return item;
+}
+
 TextDrawer::TextDrawer(core::stringw source)
 {
-	initItemDef();
-
-	m_current_style.set("underline", "no");
-	m_current_style.set("bold",      "no");
-	m_current_style.set("italic",    "no");
-	m_current_style.set("halign",    "left");
-	m_current_style.set("color",     "#EEEEEE");
-	m_current_style.set("fontsize",  "20");
-	m_current_style.set("fontstyle", "normal");
+	initItemFactories();
+	initDefaultStyle();
 
 	m_root = new Container(DT_ROOT);
 	m_root->applyStyles(m_current_style);
@@ -346,29 +358,21 @@ TextDrawer::TextDrawer(core::stringw source)
 		create(node.get());
 }
 
-void TextDrawer::initItemDef() {
-	itemDefs.emplace("p", (ItemDef *)new ItemDefParagraph());
-	itemDefs["p"]->display_type = DT_BLOC;
-
-	itemDefs.emplace("u", (ItemDef *)new ItemDefContainer());
-	itemDefs["u"]->display_type = DT_STYLE;
-	itemDefs["u"]->styles.set("underline", "yes");
-
-	itemDefs.emplace("b", (ItemDef *)new ItemDefContainer());
-	itemDefs["b"]->display_type = DT_STYLE;
-	itemDefs["b"]->styles.set("bold", "yes");
-
-	itemDefs.emplace("i", (ItemDef *)new ItemDefContainer());
-	itemDefs["i"]->display_type = DT_STYLE;
-	itemDefs["i"]->styles.set("italic", "yes");
+void TextDrawer::initDefaultStyle() {
+	m_current_style.set("underline", "no");
+	m_current_style.set("bold",      "no");
+	m_current_style.set("italic",    "no");
+	m_current_style.set("halign",    "left");
+	m_current_style.set("color",     "#EEEEEE");
+	m_current_style.set("fontsize",  "20");
+	m_current_style.set("fontstyle", "normal");
 }
 
-TextDrawer::ItemDef * TextDrawer::getItemDef(std::string item_name) {
-	try {
-		return itemDefs.at(item_name).get();
-	} catch(std::out_of_range &e) {
-		return nullptr;
-	}
+void TextDrawer::initItemFactories() {
+	itemFactories.emplace("p", (ItemFactory *)new ParagraphFactory(DT_BLOCK, {}));
+	itemFactories.emplace("u", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"underline", "yes"}}));
+	itemFactories.emplace("b", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"bold", "yes"}}));
+	itemFactories.emplace("i", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"italic", "yes"}}));
 }
 
 void TextDrawer::create(ParsedText::Node *node)
@@ -389,21 +393,17 @@ void TextDrawer::create(ParsedText::Node *node)
 
 	ParsedText::Element *element = (ParsedText::Element *)node;
 
-	ItemDef *itemDef = getItemDef(element->name);
-
-	if (itemDef != nullptr) {
-		// Override styles
-		itemDef->styles.copyTo(m_current_style);
-		Item *item = itemDef->createItem(element->attrs, &m_current_style);
-		item->applyStyles(m_current_style);
-
-		m_current_parent->children.emplace_back(item);
-		try
-		{
-			m_current_parent = dynamic_cast<Container *>(item);
+	try {
+		ItemFactory *itemFactory = itemFactories.at(element->name).get();
+		Item *item = itemFactory->newItem(element->attrs, &m_current_style);
+		if (item != nullptr) {
+			m_current_parent->children.emplace_back(item);
+			try
+			{
+				m_current_parent = dynamic_cast<Container *>(item);
+			} catch (const std::bad_cast& e) {} // Not a container -- Skip change parent
 		}
-		catch (const std::bad_cast& e) {}
-	}
+	} catch(std::out_of_range &e) {} // No factory -- Skip element creation
 
 	for (auto &node : element->children)
 		create(node.get());

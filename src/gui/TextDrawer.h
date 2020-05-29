@@ -36,7 +36,7 @@ enum FloatType {
 #include "irrString.h"
 using namespace irr;
 #include "ParsedText.h"
-
+#include "util/string.h"
 #include "config.h" // USE_FREETYPE
 #if USE_FREETYPE
 #include "irrlicht_changes/CGUITTFont.h"
@@ -56,21 +56,26 @@ public:
 	u32 getHeight();
 
 protected:
-	enum ItemType {
-		IT_NONE,
-		IT_TEXT,
-		IT_CONTAINER,
-		IT_IMAGE,
-	};
-
 	enum DisplayType {
-		DT_OMISSIBLE, // Placed at right of last DT_INLINE or DT_OMISSIBLE, can be ommited if on end or beginning of line
-		DT_INLINE, // Placed at right of last DT_INLINE or DT_OMISSIBLE
-		DT_BLOC, // Out of line bloc
+		DT_NONE,
+		// Do not display (not developped)
+		DT_OMISSIBLE,
+		// (not for standard elements)
+		// Placed at right of last DT_INLINE_BLOCK or DT_OMISSIBLE, can be
+		// ommited if on end or beginning of line.
+		// Separators text fragments (space, newlines) are of this type.
+		DT_INLINE_BLOCK,
+		// Placed at right of last DT_INLINE_BLOCK or DT_OMISSIBLE.
+		// Non blank text fragments are of this type.
+		DT_INLINE,
+		// Inline content (can be fragmented in several lines).
+		DT_BLOCK,
+		// Standard block, are placed out of inline content.
 	//	DT_FLOAT_LEFT,
 	//	DT_FLOAT_RIGHT,
 		DT_ROOT,
-		DT_STYLE, // Style only, no existance in tree
+		// (not for standard elements)
+		// Only for root element
 	};
 
 	enum HalignType
@@ -128,14 +133,7 @@ protected:
 		bool underline;
 		bool strikethrough;
 	};
-	/*
-	struct Image : Item {
-		Image();
-		void getType() override { return IT_IMAGE; };
 
-		std::string texture_name;
-	}
-	*/
 	struct Container : Item {
 		Container(DisplayType display_type) : Item(display_type) {};
 		void applyStyles(StyleList styles) override;
@@ -152,50 +150,96 @@ protected:
 		int margin;
 	};
 
-//ITEM DEF : We need only a few stuff :
-// - Styles if any
-// - Display type (always) --> In styles ?
-// - processAttrs(attrs, item *, styles) function if needed --> may be in Item def
+	struct ItemFactory {
+		ItemFactory(DisplayType display_type, std::map<std::string, std::string> styles):
+			m_display_type(display_type), m_styles(styles) {};
 
-// --> Could be in a simple ItemDef struct
+		Item *newItem(ParsedText::AttrsList attrs, StyleList *current_styles);
 
-	struct ItemDef {
-		StyleList styles;
-		virtual Item *createItem(ParsedText::AttrsList attrs, StyleList *current_styles) = 0;
-		DisplayType display_type;
+		virtual Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) = 0;
+
+		DisplayType m_display_type;
+		std::map<std::string, std::string> m_styles;
 	};
 
-	struct ItemDefContainer : ItemDef {
-		Item *createItem(ParsedText::AttrsList attrs, StyleList *current_styles) override {
-			// Apply internal styles to given style list
-			styles.copyTo(*current_styles);
-// MISSING DISPLAY TYPE ?!?
-			return (Item *)new Container(display_type);
+	struct ContainerFactory : ItemFactory {
+		ContainerFactory(DisplayType display_type, std::map<std::string, std::string> styles):
+			ItemFactory(display_type, styles) {};
+		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
+			return (Item *)new Container(m_display_type);
 		};
 	};
 
-	struct ItemDefParagraph : ItemDefContainer {
-		Item *createItem(ParsedText::AttrsList attrs, StyleList *current_styles) override {
-			Container* item = (Container *)ItemDefContainer::createItem(attrs, current_styles);
+	struct ParagraphFactory : ContainerFactory {
+		ParagraphFactory(DisplayType display_type, std::map<std::string, std::string> styles):
+			ContainerFactory(display_type, styles) {};
+
+		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
+			Container* item = (Container *)ContainerFactory::create(attrs, current_styles);
 			if (attrs.count("align") > 0)
 				current_styles->set("halign", attrs["align"]);
-
 			return (Item *)item;
 		};
 	};
 
-	/*
-	struct ItemDefImage {
-		StyleList styles;
-		Item *createItem(ParsedText::AttrsList attrs, StyleList *styles) override
+	struct Image : Item {
+		Image(DisplayType display_type) : Item(display_type) {};
+
+		void applyStyles(StyleList styles) override {};
+		void layout(Dim size) override {};
+		void draw(irr::video::IVideoDriver *driver,
+			const core::rect<s32> &clip_rect, const Pos &offset) override {};
+
+		core::stringw texture_name;
+	};
+/*
+	struct ItemImage : Image {
+		ItemImage();
+		v3s16 angle{0, 0, 0};
+		v3s16 rotation{0, 0, 0};
+	};
+*/
+	struct ImageFactory: ItemFactory {
+		Item *create(ParsedText::AttrsList attrs, StyleList *styles) override
 		{
-			return (Item *)new Image();
+			Image *item = new Image(m_display_type);
+			if (!attrs.count("name"))
+				return nullptr;
+
+			item->texture_name = utf8_to_stringw(attrs["name"]);
+
+			if (attrs.count("width")) {
+				int width = stoi(attrs["width"]);
+				if (width > 0)
+					item->dim.Width = width;
+			}
+
+			if (attrs.count("height")) {
+				int height = stoi(attrs["height"]);
+				if (height > 0)
+					item->dim.Height = height;
+			}
+
+			return (Item *)item;
 		};
 	};
-	*/
+/*
+	struct ImageItemFactory : ImageFactory {
+		Item *create(ParsedText::AttrsList attrs, StyleList *styles) override
+		{
 
-	void initItemDef();
-	ItemDef *getItemDef(std::string item_name);
+		}
+
+	}
+
+				// Rotate attribute is only for <item>
+				if (attrs.count("rotate") && name != "item")
+				// Angle attribute is only for <item>
+				if (attrs.count("angle") && name != "item")
+					return 0;
+*/
+	void initDefaultStyle();
+	void initItemFactories();
 	void create(ParsedText::Node *node);
 
 	Container *m_root;
@@ -204,6 +248,6 @@ protected:
 
 	s32 m_voffset = 0;
 
-	std::map<std::string, std::unique_ptr<ItemDef>> itemDefs;
+	std::map<std::string, std::unique_ptr<ItemFactory>> itemFactories;
 
 };
