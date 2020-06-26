@@ -394,15 +394,11 @@ Dim TextDrawer::Image::getImageSize() {
 		return Dim(80, 80);
 }
 
-TextDrawer::Item *TextDrawer::ItemFactory::newItem(
-		ParsedText::AttrsList attrs, StyleList *current_styles) {
-	for (auto style: m_styles)
-		if (style.second != "")
-			current_styles->set(style.first, style.second);
-	Item *item = create(attrs, current_styles);
-	item->applyStyles(current_styles);
-	return item;
-}
+// =============================================================================
+//
+// TextDrawer class
+//
+// =============================================================================
 
 TextDrawer::TextDrawer(core::stringw source, gui::IGUIEnvironment *environment,
 		Client *client):
@@ -410,8 +406,14 @@ TextDrawer::TextDrawer(core::stringw source, gui::IGUIEnvironment *environment,
 	m_texturesource(client->getTextureSource()),
 	m_itemdefmanager(client->idef())
 {
-	initItemFactories();
-	initDefaultStyle();
+	// Default styles
+	m_current_style.set("underline", "no");
+	m_current_style.set("bold",      "no");
+	m_current_style.set("italic",    "no");
+	m_current_style.set("halign",    "left");
+	m_current_style.set("color",     "#EEEEEE");
+	m_current_style.set("fontsize",  "20");
+	m_current_style.set("fontstyle", "normal");
 
 	m_root = new Container(this, DT_ROOT);
 	m_root->applyStyles(&m_current_style);
@@ -423,24 +425,7 @@ TextDrawer::TextDrawer(core::stringw source, gui::IGUIEnvironment *environment,
 		create(node.get());
 }
 
-void TextDrawer::initDefaultStyle() {
-	m_current_style.set("underline", "no");
-	m_current_style.set("bold",      "no");
-	m_current_style.set("italic",    "no");
-	m_current_style.set("halign",    "left");
-	m_current_style.set("color",     "#EEEEEE");
-	m_current_style.set("fontsize",  "20");
-	m_current_style.set("fontstyle", "normal");
-}
-
-void TextDrawer::initItemFactories() {
-	itemFactories.emplace("p", (ItemFactory *)new ParagraphFactory(this, DT_BLOCK, {}));
-	itemFactories.emplace("u", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"underline", "yes"}}));
-	itemFactories.emplace("b", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"bold", "yes"}}));
-	itemFactories.emplace("i", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"italic", "yes"}}));
-	itemFactories.emplace("img", (ItemFactory *)new ImageFactory(this, DT_BLOCK, {}));
-}
-
+// Nodes to item conversion
 void TextDrawer::create(ParsedText::Node *node)
 {
 	if (node->type == ParsedText::NT_TEXT) {
@@ -459,17 +444,14 @@ void TextDrawer::create(ParsedText::Node *node)
 
 	ParsedText::Element *element = (ParsedText::Element *)node;
 
-	try {
-		ItemFactory *itemFactory = itemFactories.at(element->name).get();
-		Item *item = itemFactory->newItem(element->attrs, &m_current_style);
-		if (item != nullptr) {
-			m_current_parent->children.emplace_back(item);
-			try
-			{
-				m_current_parent = dynamic_cast<Container *>(item);
-			} catch (const std::bad_cast& e) {} // Not a container -- Skip change parent
-		}
-	} catch(std::out_of_range &e) {} // No factory -- Skip element creation
+	Item *item = newItem(element->name, element->attrs);
+	if (item != nullptr) {
+		m_current_parent->children.emplace_back(item);
+		try
+		{
+			m_current_parent = dynamic_cast<Container *>(item);
+		} catch (const std::bad_cast& e) {} // Not a container -- Skip change parent
+	}
 
 	for (auto &node : element->children)
 		create(node.get());
@@ -477,6 +459,96 @@ void TextDrawer::create(ParsedText::Node *node)
 	// Restore parent context
 	m_current_style = old_style;
 	m_current_parent = old_parent;
+}
+
+// Items creation
+TextDrawer::Item *TextDrawer::newItem(std::string tagName, ParsedText::AttrsList attrs)
+{
+	Item *item = nullptr;
+	std::unordered_map<std::string, std::string> styles;
+
+	// Hardcoded tags
+	if (tagName == "p") {
+		item = newParagraph(attrs, DT_BLOCK);
+	}
+
+	if (tagName == "img") {
+		item = newImage(attrs, DT_BLOCK);
+	}
+
+	if (tagName == "b") {
+		item = newContainer(attrs, DT_INLINE);
+		styles["bold"] = "yes";
+	}
+
+	if (tagName == "i") {
+		item = newContainer(attrs, DT_INLINE);
+		styles["italic"] = "yes";
+	}
+
+	if (tagName == "u") {
+		item = newContainer(attrs, DT_INLINE);
+		styles["underline"] = "yes";
+	}
+
+	if (item == nullptr)
+		return item;
+
+	// Change current style
+	for (auto style: styles)
+		if (style.second != "")
+			m_current_style.set(style.first, style.second);
+
+	// Apply current style
+	item->applyStyles(&m_current_style);
+
+	return item;
+}
+
+TextDrawer::Item *TextDrawer::newContainer(ParsedText::AttrsList attrs,	DisplayType display_type)
+{
+	return (Item *)new Container(this, display_type);
+}
+
+TextDrawer::Item *TextDrawer::newParagraph(ParsedText::AttrsList attrs, DisplayType display_type)
+{
+	Container* item = (Container *)newContainer(attrs, display_type);
+	if (attrs.count("align") > 0)
+		m_current_style.set("halign", attrs["align"]);
+	return (Item *)item;
+}
+
+
+/*
+struct ItemImage : Image {
+	ItemImage();
+	v3s16 angle{0, 0, 0};
+	v3s16 rotation{0, 0, 0};
+};
+*/
+
+TextDrawer::Item *TextDrawer::newImage(ParsedText::AttrsList attrs, DisplayType display_type)
+{
+	Image *item = new Image(this, display_type);
+	if (!attrs.count("texture"))
+		return nullptr;
+
+	item->texture_name = attrs["texture"];
+	item->wanteddim = Dim(0, 0);
+
+	if (attrs.count("width")) {
+		int width = stoi(attrs["width"]);
+		if (width > 0)
+			item->wanteddim.Width = width;
+	}
+
+	if (attrs.count("height")) {
+		int height = stoi(attrs["height"]);
+		if (height > 0)
+			item->wanteddim.Height = height;
+	}
+
+	return (Item *)item;
 }
 
 void TextDrawer::layout(const core::rect<s32> &rect)

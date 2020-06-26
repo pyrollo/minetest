@@ -164,6 +164,9 @@ protected:
 		int margin;
 	};
 
+	Item *newContainer(ParsedText::AttrsList attrs, DisplayType display_type);
+	Item *newParagraph(ParsedText::AttrsList attrs, DisplayType display_type);
+
 	struct Image : Item {
 		Image(TextDrawer *drawer, DisplayType display_type):
 			Item(drawer, display_type) {};
@@ -178,42 +181,7 @@ protected:
 		Dim wanteddim;
 	};
 
-	struct ItemFactory {
-		ItemFactory(TextDrawer *drawer, DisplayType display_type,
-				std::map<std::string, std::string> styles):
-			m_drawer(drawer), m_display_type(display_type), m_styles(styles) {};
-
-		Item *newItem(ParsedText::AttrsList attrs, StyleList *current_styles);
-
-		virtual Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) = 0;
-
-		TextDrawer *m_drawer;
-		DisplayType m_display_type;
-		std::map<std::string, std::string> m_styles;
-	};
-
-	struct ContainerFactory : ItemFactory {
-		ContainerFactory(TextDrawer *drawer,  DisplayType display_type,
-				std::map<std::string, std::string> styles):
-			ItemFactory(drawer, display_type, styles) {};
-
-		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
-			return (Item *)new Container(m_drawer, m_display_type);
-		};
-	};
-
-	struct ParagraphFactory : ContainerFactory {
-		ParagraphFactory(TextDrawer *drawer, DisplayType display_type,
-				std::map<std::string, std::string> styles):
-			ContainerFactory(drawer, display_type, styles) {};
-
-		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
-			Container* item = (Container *)ContainerFactory::create(attrs, current_styles);
-			if (attrs.count("align") > 0)
-				current_styles->set("halign", attrs["align"]);
-			return (Item *)item;
-		};
-	};
+	Item *newImage(ParsedText::AttrsList attrs, DisplayType display_type);
 
 /*
 	struct ItemImage : Image {
@@ -222,46 +190,9 @@ protected:
 		v3s16 rotation{0, 0, 0};
 	};
 */
-	struct ImageFactory: ItemFactory {
-		ImageFactory(TextDrawer *drawer, DisplayType display_type,
-				std::map<std::string, std::string> styles):
-			ItemFactory(drawer, display_type, styles) {};
 
-		Item *create(ParsedText::AttrsList attrs, StyleList *styles) override
-		{
-			Image *item = new Image(m_drawer, m_display_type);
-			if (!attrs.count("texture"))
-				return nullptr;
 
-			item->texture_name = attrs["texture"];
-			item->wanteddim = Dim(0, 0);
-
-			if (attrs.count("width")) {
-				int width = stoi(attrs["width"]);
-				if (width > 0)
-					item->wanteddim.Width = width;
-			}
-
-			if (attrs.count("height")) {
-				int height = stoi(attrs["height"]);
-				if (height > 0)
-					item->wanteddim.Height = height;
-			}
-
-			return (Item *)item;
-		};
-	};
-/*
-	struct ImageItemFactory : ImageFactory {
-		Item *create(ParsedText::AttrsList attrs, StyleList *styles) override
-		{
-
-		}
-
-	}
-*/
-	void initDefaultStyle();
-	void initItemFactories();
+	Item *newItem(std::string tagName, ParsedText::AttrsList attrs);
 	void create(ParsedText::Node *node);
 
 	video::IVideoDriver *getVideoDriver() { return m_videodriver; };
@@ -277,7 +208,4 @@ protected:
 	StyleList m_current_style;
 
 	s32 m_voffset = 0;
-
-	std::map<std::string, std::unique_ptr<ItemFactory>> itemFactories;
-
 };
