@@ -34,7 +34,8 @@ enum FloatType {
 #include <map>
 #include "irrlichttypes_bloated.h"
 #include "irrString.h"
-using namespace irr;
+//#include "IGUIEnvironment.h"
+//using namespace irr;
 #include "ParsedText.h"
 #include "util/string.h"
 #include "config.h" // USE_FREETYPE
@@ -42,17 +43,24 @@ using namespace irr;
 #include "irrlicht_changes/CGUITTFont.h"
 #endif
 
+class Client;
+namespace irr {
+	namespace video {
+		class IVideoDriver;
+	}
+}
+class ITextureSource;
+class IItemDefManager;
+
 typedef core::dimension2d<u32> Dim;
 typedef core::position2d<s32> Pos;
 
 class TextDrawer
 {
 public:
-	TextDrawer(core::stringw source);
+	TextDrawer(core::stringw source, gui::IGUIEnvironment *environment, Client *client);
 	void layout(const core::rect<s32> &rect);
-	void draw(irr::video::IVideoDriver *driver,
-			const core::rect<s32> &clip_rect,
-			const Pos &offset);
+	void draw(const core::rect<s32> &clip_rect, const Pos &offset);
 	u32 getHeight();
 
 protected:
@@ -97,31 +105,37 @@ protected:
 	};
 
 	struct Item {
-		Item(DisplayType display_type): display_type(display_type), dim(0, 0),
-			drawdim(0, 0), pos(0, 0) {};
+		Item(TextDrawer *drawer, DisplayType display_type): drawer(drawer),
+			display_type(display_type), dim(0, 0), drawdim(0, 0), pos(0, 0) {};
 
-		virtual void applyStyles(StyleList styles) = 0; // Use only styles that applies to this bloc
+		virtual void applyStyles(StyleList *styles) = 0; // Use only styles that applies to this bloc
+
+		// Size item according to given parent container size and inner atributes
+		// Pos is computed by the parent container
 		virtual void layout(Dim size) = 0;
-		virtual void draw(irr::video::IVideoDriver *driver,
-			const core::rect<s32> &clip_rect, const Pos &offset) = 0;
+
+		// Draw item with offset
+		virtual void draw(const core::rect<s32> &clip_rect, const Pos &offset) = 0;
+
 		virtual void populatePlaceableChildren(std::vector<Item *> *children) {};
+
+		TextDrawer *drawer;
 
 		DisplayType display_type;
 
 		// Effective size and pos
-		Dim dim;
-		Dim drawdim;
-		Pos pos;
-		u32 baseline = 0;
+		Dim dim;          // Intrinsic dimension of the item
+		Dim drawdim;      // Drawn dimension of the item (including extra space)
+		Pos pos;          // Position of the item computed during layout
+		u32 baseline = 0; // Baseline used for vertical item alignment (if inline)
 	};
 
 	struct TextFragment : Item {
-		TextFragment(ParsedText::TextFragment *fragment);
+		TextFragment(TextDrawer *drawer, ParsedText::TextFragment *fragment);
 
-		void applyStyles(StyleList styles) override;
+		void applyStyles(StyleList *styles) override;
 		void layout(Dim size) override;
-		void draw(irr::video::IVideoDriver *driver,
-			const core::rect<s32> &clip_rect, const Pos &offset) override;
+		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
 
 		// TextFragment specific
 		core::stringw text;
@@ -135,11 +149,11 @@ protected:
 	};
 
 	struct Container : Item {
-		Container(DisplayType display_type) : Item(display_type) {};
-		void applyStyles(StyleList styles) override;
+		Container(TextDrawer *drawer, DisplayType display_type):
+			Item(drawer, display_type) {};
+		void applyStyles(StyleList *styles) override;
 		void layout(Dim size) override;
-		void draw(irr::video::IVideoDriver *driver,
-			const core::rect<s32> &clip_rect, const Pos &offset) override;
+		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
 		void populatePlaceableChildren(std::vector<Item *> *children) override;
 
 		// Container specific
@@ -150,29 +164,48 @@ protected:
 		int margin;
 	};
 
+	struct Image : Item {
+		Image(TextDrawer *drawer, DisplayType display_type):
+			Item(drawer, display_type) {};
+
+		void applyStyles(StyleList *styles) override;
+		void layout(Dim size) override;
+		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
+
+		virtual Dim getImageSize();
+
+		std::string texture_name;
+		Dim wanteddim;
+	};
+
 	struct ItemFactory {
-		ItemFactory(DisplayType display_type, std::map<std::string, std::string> styles):
-			m_display_type(display_type), m_styles(styles) {};
+		ItemFactory(TextDrawer *drawer, DisplayType display_type,
+				std::map<std::string, std::string> styles):
+			m_drawer(drawer), m_display_type(display_type), m_styles(styles) {};
 
 		Item *newItem(ParsedText::AttrsList attrs, StyleList *current_styles);
 
 		virtual Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) = 0;
 
+		TextDrawer *m_drawer;
 		DisplayType m_display_type;
 		std::map<std::string, std::string> m_styles;
 	};
 
 	struct ContainerFactory : ItemFactory {
-		ContainerFactory(DisplayType display_type, std::map<std::string, std::string> styles):
-			ItemFactory(display_type, styles) {};
+		ContainerFactory(TextDrawer *drawer,  DisplayType display_type,
+				std::map<std::string, std::string> styles):
+			ItemFactory(drawer, display_type, styles) {};
+
 		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
-			return (Item *)new Container(m_display_type);
+			return (Item *)new Container(m_drawer, m_display_type);
 		};
 	};
 
 	struct ParagraphFactory : ContainerFactory {
-		ParagraphFactory(DisplayType display_type, std::map<std::string, std::string> styles):
-			ContainerFactory(display_type, styles) {};
+		ParagraphFactory(TextDrawer *drawer, DisplayType display_type,
+				std::map<std::string, std::string> styles):
+			ContainerFactory(drawer, display_type, styles) {};
 
 		Item *create(ParsedText::AttrsList attrs, StyleList *current_styles) override {
 			Container* item = (Container *)ContainerFactory::create(attrs, current_styles);
@@ -182,16 +215,6 @@ protected:
 		};
 	};
 
-	struct Image : Item {
-		Image(DisplayType display_type) : Item(display_type) {};
-
-		void applyStyles(StyleList styles) override {};
-		void layout(Dim size) override {};
-		void draw(irr::video::IVideoDriver *driver,
-			const core::rect<s32> &clip_rect, const Pos &offset) override {};
-
-		core::stringw texture_name;
-	};
 /*
 	struct ItemImage : Image {
 		ItemImage();
@@ -200,24 +223,29 @@ protected:
 	};
 */
 	struct ImageFactory: ItemFactory {
+		ImageFactory(TextDrawer *drawer, DisplayType display_type,
+				std::map<std::string, std::string> styles):
+			ItemFactory(drawer, display_type, styles) {};
+
 		Item *create(ParsedText::AttrsList attrs, StyleList *styles) override
 		{
-			Image *item = new Image(m_display_type);
-			if (!attrs.count("name"))
+			Image *item = new Image(m_drawer, m_display_type);
+			if (!attrs.count("texture"))
 				return nullptr;
 
-			item->texture_name = utf8_to_stringw(attrs["name"]);
+			item->texture_name = attrs["texture"];
+			item->wanteddim = Dim(0, 0);
 
 			if (attrs.count("width")) {
 				int width = stoi(attrs["width"]);
 				if (width > 0)
-					item->dim.Width = width;
+					item->wanteddim.Width = width;
 			}
 
 			if (attrs.count("height")) {
 				int height = stoi(attrs["height"]);
 				if (height > 0)
-					item->dim.Height = height;
+					item->wanteddim.Height = height;
 			}
 
 			return (Item *)item;
@@ -231,16 +259,18 @@ protected:
 		}
 
 	}
-
-				// Rotate attribute is only for <item>
-				if (attrs.count("rotate") && name != "item")
-				// Angle attribute is only for <item>
-				if (attrs.count("angle") && name != "item")
-					return 0;
 */
 	void initDefaultStyle();
 	void initItemFactories();
 	void create(ParsedText::Node *node);
+
+	video::IVideoDriver *getVideoDriver() { return m_videodriver; };
+	ITextureSource*  getTextureSource()  { return m_texturesource; };
+	IItemDefManager* getItemDefManager() { return m_itemdefmanager; };
+
+	video::IVideoDriver *m_videodriver;
+	ITextureSource *m_texturesource;
+	IItemDefManager *m_itemdefmanager;
 
 	Container *m_root;
 	Container *m_current_parent;

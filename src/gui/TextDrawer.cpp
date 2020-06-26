@@ -16,9 +16,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 #include "TextDrawer.h"
+#include "IGUIEnvironment.h"
 #include "util/string.h"
+#include "client/client.h"
 #include "client/fontengine.h"
 #include <typeinfo>
+#include "IVideoDriver.h"
 
 // Style list management
 
@@ -93,39 +96,42 @@ ParsedText::Element *GUIHyperText::getElementAt(s32 X, s32 Y)
 
 */
 
-TextDrawer::TextFragment::TextFragment(ParsedText::TextFragment *fragment) :
-	Item(DT_INLINE_BLOCK), font(nullptr), underline(false), strikethrough(false)
+TextDrawer::TextFragment::TextFragment(
+		TextDrawer *drawer,
+		ParsedText::TextFragment *fragment):
+	Item(drawer, DT_INLINE_BLOCK), font(nullptr), underline(false),
+	strikethrough(false)
 {
 	if (fragment->omissible)
 		display_type = DT_OMISSIBLE;
 	text = fragment->text;
 }
 
-void TextDrawer::TextFragment::applyStyles(StyleList styles) {
-	underline = styles.isYes("underline");
-	strikethrough = styles.isYes("strikethrough");
+void TextDrawer::TextFragment::applyStyles(StyleList *styles) {
+	underline = styles->isYes("underline");
+	strikethrough = styles->isYes("strikethrough");
 
 	video::SColor colorval;
 
-	if (parseColorString(styles.get("color"), colorval, false))
+	if (parseColorString(styles->get("color"), colorval, false))
 		color = colorval;
 //	if (parseColorString(style["hovercolor"], color, false))
 //		this->hovercolor = color;
 
-	unsigned int font_size = std::atoi(styles.get("fontsize").c_str());
+	unsigned int font_size = std::atoi(styles->get("fontsize").c_str());
 	FontMode font_mode = FM_Standard;
-	if (styles.get("fontstyle") == "mono")
+	if (styles->get("fontstyle") == "mono")
 		font_mode = FM_Mono;
 
 	FontSpec spec(font_size, font_mode,
-		styles.isYes("bold"), styles.isYes("italic"));
+		styles->isYes("bold"), styles->isYes("italic"));
 
 	font = g_fontengine->getFont(spec);
 
 	if (!font)
 		printf("No font found ! Size=%d, mode=%d, bold=%s, italic=%s\n",
-				font_size, font_mode, styles.get("bold").c_str(),
-				styles.get("italic").c_str());
+				font_size, font_mode, styles->get("bold").c_str(),
+				styles->get("italic").c_str());
 }
 
 void TextDrawer::TextFragment::layout(Dim size) {
@@ -147,8 +153,8 @@ void TextDrawer::TextFragment::layout(Dim size) {
 	drawdim.Height = dim.Height;
 }
 
-void TextDrawer::TextFragment::draw(irr::video::IVideoDriver *driver,
-	const core::rect<s32> &clip_rect, const Pos &offset)
+void TextDrawer::TextFragment::draw(const core::rect<s32> &clip_rect,
+		const Pos &offset)
 {
 	core::rect<s32> rect(pos + offset, dim);
 	if (!rect.isRectCollided(clip_rect))
@@ -166,12 +172,12 @@ void TextDrawer::TextFragment::draw(irr::video::IVideoDriver *driver,
 				pos.X + offset.X, linepos - (baseline >> 3) - 1,
 				pos.X + offset.X + drawdim.Width, linepos + (baseline >> 3));
 
-		driver->draw2DRectangle(color, linerect, &clip_rect);
+		drawer->getVideoDriver()->draw2DRectangle(color, linerect, &clip_rect);
 	}
 }
 
-void TextDrawer::Container::applyStyles(StyleList styles) {
-	std::string val = styles.get("halign");
+void TextDrawer::Container::applyStyles(StyleList *styles) {
+	std::string val = styles->get("halign");
 	if (val == "center")
 		halign = HALIGN_CENTER;
 	else if (val == "right")
@@ -310,9 +316,9 @@ void TextDrawer::Container::layout(Dim size) {
 	dim.Width = size.Width; // Possibility to reduce it to block size if no text
 }
 
-void TextDrawer::Container::draw(irr::video::IVideoDriver *driver,
-	const core::rect<s32> &clip_rect, const Pos &offset) {
-
+void TextDrawer::Container::draw(const core::rect<s32> &clip_rect,
+		const Pos &offset)
+{
 	Pos newoffset = pos + offset;
 
 	core::rect<s32> rect(newoffset, dim);
@@ -322,7 +328,7 @@ void TextDrawer::Container::draw(irr::video::IVideoDriver *driver,
 		return;
 
 	for (auto &item: children)
-		item->draw(driver, clip_rect, newoffset);
+		item->draw(clip_rect, newoffset);
 }
 
 void TextDrawer::Container::populatePlaceableChildren(std::vector<Item *> *placeablechildren)
@@ -334,22 +340,81 @@ void TextDrawer::Container::populatePlaceableChildren(std::vector<Item *> *place
 			placeablechildren->push_back(child.get());
 }
 
+void TextDrawer::Image::applyStyles(StyleList *styles) {
+	/*
+
+					// Rotate attribute is only for <item>
+					if (attrs.count("rotate") && name != "item")
+					// Angle attribute is only for <item>
+					if (attrs.count("angle") && name != "item")
+						return 0;
+	*/
+}
+
+void TextDrawer::Image::layout(Dim size) {
+	if (wanteddim.Width > 0 && wanteddim.Height > 0) {
+		dim = wanteddim;
+		return;
+	}
+
+	dim = getImageSize();
+
+	if (wanteddim.Width > 0) {
+		dim.Height = dim.Height * wanteddim.Width / dim.Width;
+		dim.Width = wanteddim.Width;
+	}
+
+	if (wanteddim.Height > 0) {
+		dim.Width = dim.Width * wanteddim.Height / dim.Height;
+		dim.Height = wanteddim.Height;
+	}
+}
+
+void TextDrawer::Image::draw(const core::rect<s32> &clip_rect,
+		const Pos &offset) {
+
+	video::ITexture *texture =
+		drawer->getTextureSource()->getTexture(texture_name);
+
+	if (texture != 0)
+		drawer->getVideoDriver()->draw2DImage(
+				texture, core::rect<s32>(pos + offset, dim),
+				irr::core::rect<s32>(
+						core::position2d<s32>(0, 0),
+						texture->getOriginalSize()),
+				&clip_rect, 0, true);
+}
+
+Dim TextDrawer::Image::getImageSize() {
+	video::ITexture *texture =
+		drawer->getTextureSource()->getTexture(texture_name);
+	if (texture)
+		return texture->getOriginalSize();
+	else
+		return Dim(80, 80);
+}
+
 TextDrawer::Item *TextDrawer::ItemFactory::newItem(
 		ParsedText::AttrsList attrs, StyleList *current_styles) {
 	for (auto style: m_styles)
 		if (style.second != "")
 			current_styles->set(style.first, style.second);
 	Item *item = create(attrs, current_styles);
+	item->applyStyles(current_styles);
 	return item;
 }
 
-TextDrawer::TextDrawer(core::stringw source)
+TextDrawer::TextDrawer(core::stringw source, gui::IGUIEnvironment *environment,
+		Client *client):
+	m_videodriver(environment->getVideoDriver()),
+	m_texturesource(client->getTextureSource()),
+	m_itemdefmanager(client->idef())
 {
 	initItemFactories();
 	initDefaultStyle();
 
-	m_root = new Container(DT_ROOT);
-	m_root->applyStyles(m_current_style);
+	m_root = new Container(this, DT_ROOT);
+	m_root->applyStyles(&m_current_style);
 	m_current_parent = m_root;
 
 	ParsedText parsed_text(source, true);
@@ -369,17 +434,18 @@ void TextDrawer::initDefaultStyle() {
 }
 
 void TextDrawer::initItemFactories() {
-	itemFactories.emplace("p", (ItemFactory *)new ParagraphFactory(DT_BLOCK, {}));
-	itemFactories.emplace("u", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"underline", "yes"}}));
-	itemFactories.emplace("b", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"bold", "yes"}}));
-	itemFactories.emplace("i", (ItemFactory *)new ContainerFactory(DT_INLINE, {{"italic", "yes"}}));
+	itemFactories.emplace("p", (ItemFactory *)new ParagraphFactory(this, DT_BLOCK, {}));
+	itemFactories.emplace("u", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"underline", "yes"}}));
+	itemFactories.emplace("b", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"bold", "yes"}}));
+	itemFactories.emplace("i", (ItemFactory *)new ContainerFactory(this, DT_INLINE, {{"italic", "yes"}}));
+	itemFactories.emplace("img", (ItemFactory *)new ImageFactory(this, DT_BLOCK, {}));
 }
 
 void TextDrawer::create(ParsedText::Node *node)
 {
 	if (node->type == ParsedText::NT_TEXT) {
-		Item *item = (Item *)new TextFragment((ParsedText::TextFragment *)node);
-		item->applyStyles(m_current_style);
+		Item *item = (Item *)new TextFragment(this, (ParsedText::TextFragment *)node);
+		item->applyStyles(&m_current_style);
 		m_current_parent->children.emplace_back(item);
 		return;
 	}
@@ -423,8 +489,7 @@ u32 TextDrawer::getHeight()
 	return m_root->dim.Height;
 }
 
-void TextDrawer::draw(irr::video::IVideoDriver *driver,
-		const core::rect<s32> &clip_rect, const Pos &offset)
+void TextDrawer::draw(const core::rect<s32> &clip_rect, const Pos &offset)
 {
 	Pos newoffset = offset;
 	newoffset.Y += m_voffset; // For scrolling
@@ -432,7 +497,5 @@ void TextDrawer::draw(irr::video::IVideoDriver *driver,
 	if (m_text.background_type == ParsedText::BACKGROUND_COLOR)
 		driver->draw2DRectangle(m_text.background_color, clip_rect);
 */
-//printf(">>>DRAW\n");
-	m_root->draw(driver, clip_rect, newoffset);
-//printf("<<<DRAW\n");
+	m_root->draw(clip_rect, newoffset);
 }

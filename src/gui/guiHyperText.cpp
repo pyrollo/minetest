@@ -17,11 +17,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "IGUIEnvironment.h"
-#include "IGUIElement.h"
 #include "guiScrollBar.h"
-#include "IGUIFont.h"
 #include "TextDrawer.h"
+#include "IGUIFont.h"
+#include "IGUIElement.h"
+#include "IGUIEnvironment.h"
 using namespace irr::gui;
 
 /*
@@ -67,7 +67,7 @@ GUIHyperText::GUIHyperText(const wchar_t *text, IGUIEnvironment *environment,
 	m_vscrollbar = new GUIScrollBar(Environment, this, -1, rect, false, true);
 	m_vscrollbar->setVisible(false);
 
-	m_drawer = new TextDrawer(text);
+	m_drawer = new TextDrawer(text, environment, m_client);
 }
 
 //! destructor
@@ -197,7 +197,7 @@ void GUIHyperText::draw()
 		m_vscrollbar->setVisible(false);
 	}
 
-	m_drawer->draw(Environment->getVideoDriver(), AbsoluteClippingRect,
+	m_drawer->draw(AbsoluteClippingRect,
 			m_display_text_rect.UpperLeftCorner + m_text_scrollpos);
 
 	// draw children
