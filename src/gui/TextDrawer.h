@@ -32,6 +32,7 @@ enum FloatType {
 #include <string>
 #include <unordered_map>
 #include <map>
+#include <deque>
 #include "irrlichttypes_bloated.h"
 #include "irrString.h"
 //#include "IGUIEnvironment.h"
@@ -79,8 +80,10 @@ protected:
 		// Inline content (can be fragmented in several lines).
 		DT_BLOCK,
 		// Standard block, are placed out of inline content.
-	//	DT_FLOAT_LEFT,
-	//	DT_FLOAT_RIGHT,
+		DT_FLOAT_LEFT,
+		// Block floating on left
+		DT_FLOAT_RIGHT,
+		// Block floating on right
 		DT_ROOT,
 		// (not for standard elements)
 		// Only for root element
@@ -118,6 +121,8 @@ protected:
 		virtual void draw(const core::rect<s32> &clip_rect, const Pos &offset) = 0;
 
 		virtual void populatePlaceableChildren(std::vector<Item *> *children) {};
+
+		bool tryPlaceFloating(s32 y, s32 &left, s32 &right, u32 itemswidth);
 
 		TextDrawer *drawer;
 
@@ -194,6 +199,7 @@ protected:
 
 	Item *newItem(std::string tagName, ParsedText::AttrsList attrs);
 	void create(ParsedText::Node *node);
+	void adjustLine(s32 &y, s32 &left, s32 &right);
 
 	video::IVideoDriver *getVideoDriver() { return m_videodriver; };
 	ITextureSource*  getTextureSource()  { return m_texturesource; };
@@ -206,6 +212,11 @@ protected:
 	Container *m_root;
 	Container *m_current_parent;
 	StyleList m_current_style;
+
+	// In this version, there is only one floating context : root item.
+	// This vector is filled during layout with placed floating items.
+	std::vector<Item *> m_placed_floating_items;
+	std::deque<Item *> m_floating_items_to_place;
 
 	s32 m_voffset = 0;
 };

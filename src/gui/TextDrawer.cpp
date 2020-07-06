@@ -96,6 +96,29 @@ ParsedText::Element *GUIHyperText::getElementAt(s32 X, s32 Y)
 
 */
 
+bool TextDrawer::Item::tryPlaceFloating(s32 y, s32 &left, s32 &right, u32 itemswidth)
+{
+	layout(Dim(right - left - itemswidth, 0));
+	if (dim.Width > right - left - itemswidth /* +/- margins */)
+		return false;
+
+	// Can be placed on the line
+	pos.Y = y;
+
+	if (display_type == DT_FLOAT_RIGHT) {
+		right -= dim.Width;
+		pos.X = right;
+	}
+
+	if (display_type == DT_FLOAT_LEFT) {
+		pos.X = left;
+		left += dim.Width;
+	}
+	drawer->m_placed_floating_items.push_back(this);
+
+	return true;
+};
+
 TextDrawer::TextFragment::TextFragment(
 		TextDrawer *drawer,
 		ParsedText::TextFragment *fragment):
@@ -196,15 +219,29 @@ void TextDrawer::Container::layout(Dim size) {
 	// Take not only direct children but all descendant in DT_INLINE elements
 	std::vector<Item *> items;
 	populatePlaceableChildren(&items);
-	float y = 0;
 
+	s32 y = 0;
+	s32 left, right;
 	std::vector<Item *>::iterator item = items.begin();
 
 	while (item != items.end()) {
-
 		// Line by line placing
-		// TODO:Check size.Width > margin *2
-		u32 linewidth = size.Width - margin * 2; // Maximum line width
+
+		// Take in account floating items for line size and pos
+		left = margin;
+ 		right = size.Width - margin;
+		drawer->adjustLine(y, left, right);
+
+		// Place remaining floating items (those that could not be placed yet)
+		while (drawer->m_floating_items_to_place.size() > 0) {
+			auto floating = drawer->m_floating_items_to_place.front();
+			if (!floating->tryPlaceFloating(y, left, right, 0))
+				// Wont fit this time, try later
+				break;
+
+			drawer->m_floating_items_to_place.pop_front();
+		}
+
 		u32 lineheight = 0; // Calulated line height (including all invisible fragments)
 
 		// Skip beginning of line separators but include them in height
@@ -222,28 +259,40 @@ void TextDrawer::Container::layout(Dim size) {
 		// First pass, find elements fitting into line
 		// (or at least one element)
 		u32 itemswidth = 0; // Total displayed item width (used for justification)
+		bool eol = false;
 
-		while (item != items.end()) {
-			if ((*item)->display_type == DT_BLOCK) {
-				// Ends ongoing line.
-				if (itemswidth > 0)
-					break;
+		while (!eol && item != items.end()) {
+			switch((*item)->display_type) {
 
-				// Line containing this block
-				(*item)->layout(Dim(linewidth, size.Height));
-				lineheight = (*item)->dim.Height;
-				item++;
-				lineend = item;
+			// Out of line blocks
+			case DT_BLOCK:
+				// If stuff already on this line, end line at this time,
+				// and place block next time
+				if (itemswidth == 0) {
+					(*item)->layout(Dim(right - left, size.Height));
+					lineheight = (*item)->dim.Height; // On this line: only this block
+					item++;
+				}
+				eol = true;
 				break;
-			}
 
-			if ((*item)->display_type == DT_OMISSIBLE ||
-					(*item)->display_type == DT_INLINE_BLOCK) {
+			// Floating blocks
+			case DT_FLOAT_RIGHT:
+			case DT_FLOAT_LEFT:
+				if (!(*item)->tryPlaceFloating(y, left, right, itemswidth))
+					drawer->m_floating_items_to_place.push_back((*item));
+				item++;
+				break;
 
-				(*item)->layout(Dim(linewidth, size.Height));
+			// Inline stuff
+			case DT_OMISSIBLE:
+			case DT_INLINE_BLOCK:
+				(*item)->layout(Dim(right - left, size.Height));
 
-				if (itemswidth > 0 && itemswidth + (*item)->dim.Width > size.Width)
+				if (itemswidth > 0 && itemswidth + (*item)->dim.Width > size.Width) {
+					eol = true;
 					break; // No more room on this line
+				}
 
 				itemswidth += (*item)->dim.Width;
 
@@ -254,8 +303,14 @@ void TextDrawer::Container::layout(Dim size) {
 					lineheight = (*item)->dim.Height;
 
 				item++;
+				break;
+
+			// Not managed items (should not occur)
+			default:
+				item++;
 			}
 		}
+
 		lineend++;
 
 		// Second pass, compute printable line width and adjustments
@@ -265,14 +320,19 @@ void TextDrawer::Container::layout(Dim size) {
 		u32 bottom = 0;
 
 		// Adjust top & bottom according to baseline
+		// + compute actual itemswidth
 		for (auto it = linestart; it != lineend; ++it) {
-			itemswidth += (*it)->dim.Width;
-			if ((*it)->display_type == DT_OMISSIBLE)
-				spacecount++;
-			if (top < (*it)->dim.Height - (*it)->baseline)
-				top = (*it)->dim.Height - (*it)->baseline;
-			if (bottom < (*it)->baseline)
-				bottom = (*it)->baseline;
+			if ((*it)->display_type == DT_OMISSIBLE ||
+					(*it)->display_type == DT_BLOCK ||
+					(*it)->display_type == DT_INLINE_BLOCK) {
+				itemswidth += (*it)->dim.Width;
+				if (top < (*it)->dim.Height - (*it)->baseline)
+					top = (*it)->dim.Height - (*it)->baseline;
+				if (bottom < (*it)->baseline)
+					bottom = (*it)->baseline;
+				if ((*it)->display_type == DT_OMISSIBLE)
+					spacecount++;
+			}
 		}
 
 		// Horizontal align
@@ -280,31 +340,35 @@ void TextDrawer::Container::layout(Dim size) {
 		float x = 0.f;
 
 		if (halign == HALIGN_CENTER)
-			x = (linewidth - itemswidth) / 2.f;
+			x = (right - left - itemswidth) / 2.f;
 
 		if (halign == HALIGN_JUSTIFY &&
 				spacecount > 0 && // Justification only if at least two items
 				!(lineend == items.end())) // Don't justify last line
-			extraspace = ((float)(linewidth - itemswidth)) / spacecount;
+			extraspace = ((float)(right - left - itemswidth)) / spacecount;
 
 		if (halign == HALIGN_RIGHT)
-			x = linewidth - itemswidth;
+			x = right - left - itemswidth;
 
 		// Third pass, actually place everything
 		for (auto it = linestart; it != lineend; ++it) {
-			(*it)->drawdim.Width = (*it)->dim.Width;
+			if ((*it)->display_type == DT_OMISSIBLE ||
+					(*it)->display_type == DT_BLOCK ||
+					(*it)->display_type == DT_INLINE_BLOCK) {
+				(*it)->drawdim.Width = (*it)->dim.Width;
 
-			(*it)->pos.X = x;
+				(*it)->pos.X = x;
 
-			x += (*it)->dim.Width;
+				x += (*it)->dim.Width;
 
-			if ((*it)->display_type == DT_OMISSIBLE) {
-				spacecount--;
-				x += extraspace;
-				(*it)->drawdim.Width = (u32)x - (*it)->pos.X;
+				if ((*it)->display_type == DT_OMISSIBLE) {
+					spacecount--;
+					x += extraspace;
+					(*it)->drawdim.Width = (u32)x - (*it)->pos.X;
+				}
+
+				(*it)->pos.Y = y + top + (*it)->baseline - (*it)->dim.Height;
 			}
-
-			(*it)->pos.Y = y + top + (*it)->baseline - (*it)->dim.Height;
 		}
 
 		// Next line
@@ -529,7 +593,7 @@ struct ItemImage : Image {
 
 TextDrawer::Item *TextDrawer::newImage(ParsedText::AttrsList attrs, DisplayType display_type)
 {
-	Image *item = new Image(this, display_type);
+	Image *item = new Image(this, DT_INLINE_BLOCK);
 	if (!attrs.count("texture"))
 		return nullptr;
 
@@ -548,11 +612,20 @@ TextDrawer::Item *TextDrawer::newImage(ParsedText::AttrsList attrs, DisplayType 
 			item->wanteddim.Height = height;
 	}
 
+	if (attrs.count("float")) {
+		if (attrs["float"] == "left")
+			item->display_type = DT_FLOAT_LEFT;
+		if (attrs["float"] == "right")
+			item->display_type = DT_FLOAT_RIGHT;
+	}
+
 	return (Item *)item;
 }
 
 void TextDrawer::layout(const core::rect<s32> &rect)
 {
+	printf("Layout (%d, %d)\n", rect.getWidth(), rect.getHeight());
+	m_placed_floating_items.clear();
 	m_root->layout(Dim(rect.getWidth(), rect.getHeight()));
 }
 
@@ -560,6 +633,7 @@ u32 TextDrawer::getHeight()
 {
 	return m_root->dim.Height;
 }
+
 
 void TextDrawer::draw(const core::rect<s32> &clip_rect, const Pos &offset)
 {
@@ -570,4 +644,40 @@ void TextDrawer::draw(const core::rect<s32> &clip_rect, const Pos &offset)
 		driver->draw2DRectangle(m_text.background_color, clip_rect);
 */
 	m_root->draw(clip_rect, newoffset);
+}
+
+// PROBLEM: here we need absolute positon but caller does not know its final offset
+
+// Adjust line according to floating items. In this version, floating context
+// is always root element. Floating items can only appear on or after cursor
+// line. So we don't need to care about line height.
+// y and left may be increased as needed, and right may be decreased as needed
+void TextDrawer::adjustLine(s32 &y, s32 &left, s32 &right) {
+	s32 l = left;
+	s32 r = right;
+printf("Before y=%d left=%d right=%d\n", y, left, right);
+	for (auto &item: m_placed_floating_items) {
+		printf("Pos (%d, %d) size (%d, %d)\n", item->pos.X, item->pos.Y, item->dim.Width, item->dim.Height);
+		// Exclude bottom boundary to avoid infinite loops
+		if (y >= item->pos.Y && y < item->pos.Y + (s32)item->dim.Height) /* + margins */
+		{
+			// Push right limit not to overlap
+			if (r >= item->pos.X && r <= item->pos.X + (s32)item->dim.Width)
+				r = item->pos.X;
+
+			// Push left limit not to overlap
+			if (l >= item->pos.X && l <= item->pos.X + (s32)item->dim.Width)
+				l = item->pos.X + item->dim.Width;
+
+			// No place left on this Y
+			if (l >= r) {
+				y = item->pos.Y + item->dim.Height; // Pass the item and try again
+				adjustLine(y, left, right);
+				return;
+			}
+		}
+	}
+	left = l;
+	right = r;
+printf("After y=%d left=%d right=%d\n", y, left, right);
 }
