@@ -115,14 +115,14 @@ protected:
 
 		// Size item according to given parent container size and inner atributes
 		// Pos is computed by the parent container
-		virtual void layout(Dim size) = 0;
+		virtual void layout(Dim size, Pos offset) = 0;
 
 		// Draw item with offset
 		virtual void draw(const core::rect<s32> &clip_rect, const Pos &offset) = 0;
 
 		virtual void populatePlaceableChildren(std::vector<Item *> *children) {};
 
-		bool tryPlaceFloating(s32 y, s32 &left, s32 &right, u32 itemswidth);
+		bool tryPlaceFloating(s32 y, s32 &left, s32 &right, u32 itemswidth, Pos offset);
 
 		TextDrawer *drawer;
 
@@ -139,7 +139,7 @@ protected:
 		TextFragment(TextDrawer *drawer, ParsedText::TextFragment *fragment);
 
 		void applyStyles(StyleList *styles) override;
-		void layout(Dim size) override;
+		void layout(Dim size, Pos offset) override;
 		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
 
 		// TextFragment specific
@@ -157,7 +157,7 @@ protected:
 		Container(TextDrawer *drawer, DisplayType display_type):
 			Item(drawer, display_type) {};
 		void applyStyles(StyleList *styles) override;
-		void layout(Dim size) override;
+		void layout(Dim size, Pos offset) override;
 		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
 		void populatePlaceableChildren(std::vector<Item *> *children) override;
 
@@ -177,7 +177,7 @@ protected:
 			Item(drawer, display_type) {};
 
 		void applyStyles(StyleList *styles) override;
-		void layout(Dim size) override;
+		void layout(Dim size, Pos offset) override;
 		void draw(const core::rect<s32> &clip_rect, const Pos &offset) override;
 
 		virtual Dim getImageSize();
@@ -199,7 +199,7 @@ protected:
 
 	Item *newItem(std::string tagName, ParsedText::AttrsList attrs);
 	void create(ParsedText::Node *node);
-	void adjustLine(s32 &y, s32 &left, s32 &right);
+	void adjustLine(s32 &y, s32 &left, s32 &right, Pos offset);
 
 	video::IVideoDriver *getVideoDriver() { return m_videodriver; };
 	ITextureSource*  getTextureSource()  { return m_texturesource; };
