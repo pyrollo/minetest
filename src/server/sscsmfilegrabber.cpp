@@ -7,6 +7,7 @@
 #include "string.h"
 #include "server/mods.h"
 #include "exceptions.h"
+#include "script/cpp_api/s_base.h" // for BUILTIN_MOD_NAME
 
 SSCSMFileGrabber::SSCSMFileGrabber(std::vector<std::string> *mods,
 	std::vector<std::pair<u8 *, u32>> *sscsm_files,
@@ -40,8 +41,8 @@ void SSCSMFileGrabber::parseMods()
 
 	// add builtin
 	std::string builtin_path = porting::path_share + DIR_DELIM + "builtin" + DIR_DELIM;
-	addDir(builtin_path + "sscsm", "*builtin*/sscsm");
-	addDir(builtin_path + "common", "*builtin*/common");
+	addDir(builtin_path + "sscsm", BUILTIN_MOD_NAME, "sscsm");
+	addDir(builtin_path + "common", BUILTIN_MOD_NAME, "common");
 
 	// parse all mods
 	std::vector<std::string> modnames;
@@ -55,7 +56,7 @@ void SSCSMFileGrabber::parseMods()
 			continue;
 		verbosestream << "[Server] found sscsm for mod \"" << modname << "\"" << std::endl;
 		m_mods->emplace_back(modname);
-		addDir(path, modname);
+		addDir(path, modname, "");
 	}
 
 	// flush the z_stream (and add last buffer)
@@ -86,6 +87,7 @@ void SSCSMFileGrabber::parseMods()
 }
 
 void SSCSMFileGrabber::addDir(const std::string &server_path,
+	const std::string &mod_name,
 	const std::string &client_path)
 {
 	// get all subpaths (ignore if folder-/filename begins with '.')
@@ -93,15 +95,17 @@ void SSCSMFileGrabber::addDir(const std::string &server_path,
 	fs::GetRecursiveSubPaths(server_path, subpaths, true, {'.'});
 
 	// add all files
-	for (const std::string &path : subpaths) {
-		if (fs::IsDir(path))
+	for (const std::string &file_path : subpaths) {
+		if (fs::IsDir(file_path))
 			continue;
 #ifndef _WIN32 // DIR_DELIM is "/"
-		addFile(path, client_path + path.substr(server_path.length()));
+		std::string path = client_path +
+			file_path.substr(server_path.length());
 #else // DIR_DELIM is not "/"
-		addFile(path, client_path + str_replace(path.substr(server_path.length()),
-			DIR_DELIM, "/"));
+		std::string path = client_path +
+			str_replace(file_path.substr(server_path.length()), DIR_DELIM, "/");
 #endif
+		addFile(file_path, mod_name, path.erase(0, path.find_first_not_of("/")));
 	}
 }
 
@@ -130,11 +134,12 @@ void SSCSMFileGrabber::compressBuffer(u8 *buffer, u32 size)
 }
 
 void SSCSMFileGrabber::addFile(const std::string &server_path,
+	const std::string &mod_name,
 	const std::string &client_path)
 {
 	verbosestream << "[Server] adding sscsm-file from " << server_path << " to " <<
 			client_path << std::endl;
-
+printf("Server adds mod \"%s\", file \"%s\"\n", mod_name.c_str(), client_path.c_str());
 	// Read the file
 	std::ifstream file(server_path, std::ios::binary | std::ios::ate);
 	std::streamsize content_size = file.tellg();
@@ -144,15 +149,21 @@ void SSCSMFileGrabber::addFile(const std::string &server_path,
 	file.close();
 
 	// Write file Header
+	u8 mod_length = mod_name.length();
 	u8 path_length = client_path.length();
-	u8 *header_buffer = new u8[1 + path_length + 4];
+	u8 *header_buffer = new u8[6 + mod_length + path_length];
 
-	writeU8(header_buffer, client_path.length());
+	writeU8(header_buffer, mod_length);
+	const char *mod_name_c = mod_name.c_str();
+	for (u8 i = 0; i < mod_length; i++)
+		header_buffer[i + 1] = mod_name_c[i];
+
+	writeU8(header_buffer + 1 + mod_length, path_length);
 	const char *client_path_c = client_path.c_str();
 	for (u8 i = 0; i < path_length; i++)
-		header_buffer[i + 1] = client_path_c[i];
-	writeU32(header_buffer + 1 + path_length, content_size);
-	compressBuffer(header_buffer, 1 + path_length + 4);
+		header_buffer[i + 2 + mod_length] = client_path_c[i];
+	writeU32(header_buffer + 2 + mod_length + path_length, content_size);
+	compressBuffer(header_buffer, 6 + mod_length + path_length);
 
 	delete[] header_buffer;
 

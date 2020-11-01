@@ -30,14 +30,14 @@ private:
 	/*
 	 * add all files in a dir
 	 */
-	void addDir(const std::string &server_path, const std::string &client_path);
+	void addDir(const std::string &server_path, const std::string &mod_name, const std::string &client_path);
 
 	/*
 	 * server_path is the real absolute path of the file on the server
 	 * client_path is the path that will be sent. The client will use it relative
 	 * to its cache path
 	 */
-	void addFile(const std::string &server_path, const std::string &client_path);
+	void addFile(const std::string &server_path, const std::string &mod_name, const std::string &client_path);
 
 
 	void compressBuffer(u8 *buffer, u32 size);

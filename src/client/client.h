@@ -104,6 +104,7 @@ private:
 };
 
 class ClientScripting;
+class ServerSentScripting;
 class GameUI;
 
 class Client : public con::PeerHandler, public InventoryManager, public IGameDef
@@ -375,6 +376,9 @@ public:
 	virtual scene::IAnimatedMesh* getMesh(const std::string &filename, bool cache = false);
 	const std::string* getModFile(std::string filename);
 
+	// Server sent scripting
+	const std::string* getServerSentScript(std::string filename);
+
 	std::string getModStoragePath() const override;
 	bool registerModStorage(ModMetadata *meta) override;
 	void unregisterModStorage(const std::string &name) override;
@@ -442,6 +446,8 @@ public:
 private:
 	void loadMods();
 	bool checkBuiltinIntegrity();
+
+	void loadServerSentScripts();
 
 	// Virtual methods from con::PeerHandler
 	void peerAdded(con::Peer *peer) override;
@@ -544,6 +550,7 @@ private:
 	bool m_nodedef_received = false;
 	bool m_activeobjects_received = false;
 	bool m_mods_loaded = false;
+	bool m_server_sent_scripts_loaded = false;
 
 	ClientMediaDownloader *m_media_downloader;
 	// Set of media filenames pushed by server at runtime
@@ -598,6 +605,10 @@ private:
 	float m_mod_storage_save_timer = 10.0f;
 	std::vector<ModSpec> m_mods;
 	StringMap m_mod_vfs;
+
+	// Server Sent Scripts
+	ServerSentScripting *m_server_sent_script = nullptr;
+	StringMap m_server_scripts_vfs;
 
 	bool m_shutdown = false;
 

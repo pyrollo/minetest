@@ -655,6 +655,26 @@ int ScriptApiSecurity::sl_g_loadfile(lua_State *L)
 		}
 		return 1;
 	}
+
+	// Server sent implementation
+	if (script->getType() == ScriptingType::ServerSent) {
+		std::string path = readParam<std::string>(L, 1);
+		const std::string *contents = script->getClient()->getServerSentScript(path);
+		if (!contents) {
+			std::string error_msg = "Coudln't find script called: " + path;
+			lua_pushnil(L);
+			lua_pushstring(L, error_msg.c_str());
+			return 2;
+		}
+
+		std::string chunk_name = "@" + path;
+		if (!safeLoadString(L, *contents, chunk_name.c_str())) {
+			lua_pushnil(L);
+			lua_insert(L, -2);
+			return 2;
+		}
+		return 1;
+	}
 #endif
 
 	// Server implementation

@@ -1567,7 +1567,7 @@ void Client::handleCommand_SSCSMFileBunch(NetworkPacket *pkt) //hier
 		*pkt >> buffer[i];
 
 	if (!m_sscsm_file_downloader)
-		m_sscsm_file_downloader = new SSCSMFileDownloader(file_bunches_count);
+		m_sscsm_file_downloader = new SSCSMFileDownloader(file_bunches_count, &m_server_scripts_vfs);
 
 	bool finished = m_sscsm_file_downloader->addBunch(i, buffer, size);
 	if (finished)

@@ -54,6 +54,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "serialization.h"
 #include "guiscalingfilter.h"
 #include "script/scripting_client.h"
+#include "script/scripting_server_sent.h"
 #include "game.h"
 #include "chatmessage.h"
 #include "translation.h"
@@ -136,6 +137,7 @@ Client::Client(
 
 void Client::loadMods()
 {
+/* DISABLE CSM DURING SSCSM DEV
 	// Don't load mods twice.
 	// If client scripting is disabled by the client, don't load builtin or
 	// client-provided mods.
@@ -155,6 +157,79 @@ void Client::loadMods()
 	m_script = new ClientScripting(this);
 	m_env.setScript(m_script);
 	m_script->setEnv(&m_env);
+
+	// Load builtin
+	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
+	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
+*/
+	// TODO Uncomment when server-sent CSM and verifying of builtin are complete
+	/*
+	// Don't load client-provided mods if disabled by server
+	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOAD_CLIENT_MODS)) {
+		warningstream << "Client-provided mod loading is disabled by server." <<
+			std::endl;
+		// If builtin integrity is wrong, disconnect user
+		if (!checkBuiltinIntegrity()) {
+			// TODO disconnect user
+		}
+		return;
+	}
+	*/
+/* DISABLE CSM DURING SSCSM DEV
+	ClientModConfiguration modconf(getClientModsLuaPath());
+	m_mods = modconf.getMods();
+	// complain about mods with unsatisfied dependencies
+	if (!modconf.isConsistent()) {
+		modconf.printUnsatisfiedModsError();
+		return;
+	}
+
+	// Print mods
+	infostream << "Client loading mods: ";
+	for (const ModSpec &mod : m_mods)
+		infostream << mod.name << " ";
+	infostream << std::endl;
+
+	// Load "mod" scripts
+	for (const ModSpec &mod : m_mods) {
+		if (!string_allowed(mod.name, MODNAME_ALLOWED_CHARS)) {
+			throw ModError("Error loading mod \"" + mod.name +
+				"\": Mod name does not follow naming conventions: "
+					"Only characters [a-z0-9_] are allowed.");
+		}
+		scanModIntoMemory(mod.name, mod.path);
+	}
+
+	// Run them
+	for (const ModSpec &mod : m_mods)
+		m_script->loadModFromMemory(mod.name);
+
+	// Mods are done loading. Unlock callbacks
+	m_mods_loaded = true;
+
+	// Run a callback when mods are loaded
+	m_script->on_mods_loaded();
+
+	// Create objects if they're ready
+	if (m_state == LC_Ready)
+		m_script->on_client_ready(m_env.getLocalPlayer());
+	if (m_camera)
+		m_script->on_camera_ready(m_camera);
+	if (m_minimap)
+		m_script->on_minimap_ready(m_minimap);
+
+*/
+}
+
+void Client::loadServerSentScripts()
+{
+	if (m_server_sent_scripts_loaded)
+		return;
+
+	m_server_sent_script = new ServerSentScripting(this);
+#warning TODO: Environment server sent scripting
+//	m_env.setScript(m_server_sent_script);
+//	m_server_sent_script->setEnv(&m_env);
 
 	// Load builtin
 	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
@@ -216,6 +291,7 @@ void Client::loadMods()
 	if (m_minimap)
 		m_script->on_minimap_ready(m_minimap);
 }
+
 
 bool Client::checkBuiltinIntegrity()
 {
@@ -1967,6 +2043,23 @@ const std::string* Client::getModFile(std::string filename)
 
 	StringMap::const_iterator it = m_mod_vfs.find(filename);
 	if (it == m_mod_vfs.end())
+		return nullptr;
+	return &it->second;
+}
+
+const std::string* Client::getServerSentScript(std::string filename)
+{
+	// strip dir delimiter from beginning of path
+	auto pos = filename.find_first_of(':');
+	if (pos == std::string::npos)
+		return nullptr;
+	pos++;
+	auto pos2 = filename.find_first_not_of('/', pos);
+	if (pos2 > pos)
+		filename.erase(pos, pos2 - pos);
+
+	StringMap::const_iterator it = m_server_scripts_vfs.find(filename);
+	if (it == m_server_scripts_vfs.end())
 		return nullptr;
 	return &it->second;
 }
