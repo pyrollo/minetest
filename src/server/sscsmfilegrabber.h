@@ -39,10 +39,8 @@ private:
 	 */
 	void addFile(const std::string &server_path, const std::string &client_path);
 
-	/*
-	 * clears m_buffer_queue by compressing the buffers and putting them into m_sscsm_files
-	 */
-	void clearQueue(bool also_clear_m_buffer);
+
+	void compressBuffer(u8 *buffer, u32 size);
 
 	std::vector<std::string> *m_mods;
 	std::vector<std::pair<u8 *, u32>> *m_sscsm_files;

@@ -59,8 +59,7 @@ void SSCSMFileGrabber::parseMods()
 	}
 
 	// flush the z_stream (and add last buffer)
-	m_zstream.next_in = m_buffer;
-	m_zstream.avail_in = m_buffer_offset;
+	m_zstream.avail_in = 0;
 	do {
 		ret = deflate(&m_zstream, Z_FINISH);
 		if (ret < 0)
@@ -106,94 +105,16 @@ void SSCSMFileGrabber::addDir(const std::string &server_path,
 	}
 }
 
-void SSCSMFileGrabber::addFile(const std::string &server_path,
-	const std::string &client_path)
+void SSCSMFileGrabber::compressBuffer(u8 *buffer, u32 size)
 {
-	verbosestream << "[Server] adding sscsm-file from " << server_path << " to " <<
-			client_path << std::endl;
-
-	// Add client_path to buffer
-	// (the buffer always has enough space free, see below)
-	u8 path_length = client_path.length();
-	writeU8(m_buffer + m_buffer_offset, path_length);
-	m_buffer_offset++;
-	const char *client_path_c = client_path.c_str();
-	for (u8 i = 0; i < path_length; i++)
-		m_buffer[m_buffer_offset + i] = client_path_c[i];
-	m_buffer_offset += path_length;
-
-	// Prepare file length writing
-	// (file_length will be written to file_length_buffer when it is finished)
-	u8 *file_length_buffer = m_buffer + m_buffer_offset;
-	m_buffer_offset += 4;
-	u32 file_length = 0;
-
-	// Read the file
-	std::ifstream file(server_path);
-	while (true) {
-		file.read((char *)(m_buffer + m_buffer_offset), m_buffer_size - m_buffer_offset);
-		u32 readl = file.gcount();
-		m_buffer_offset += readl;
-		file_length += readl;
-		if (m_buffer_offset == m_buffer_size) {
-			// buffer is full, file probably not empty
-			// add buffer to m_buffer_queue
-			m_buffer_queue.push(m_buffer);
-			// make new buffer
-			m_buffer_offset = 0;
-			m_buffer = new u8[m_buffer_size];
-			continue;
-		}
-		// buffer is not full, but file is empty
-		// save file length
-		writeU32(file_length_buffer, file_length);
-		// compress buffers
-		// and ensure that m_buffer has enough space free for the next path
-		clearQueue(m_buffer_size < m_buffer_offset + 1 + 256);
-		break;
-	}
-	file.close();
-}
-
-void SSCSMFileGrabber::clearQueue(bool also_clear_m_buffer)
-{
-	int ret = 0;
-
-	while (!m_buffer_queue.empty()) {
-		u8 *buffer = m_buffer_queue.front();
-
-		m_zstream.next_in = buffer;
-		m_zstream.avail_in = m_buffer_size;
-
-		do {
-			ret = deflate(&m_zstream, Z_NO_FLUSH);
-			if (ret < 0)
-				throw SerializationError("SSCSMFileGrabber: deflate failed");
-
-			if (m_zstream.avail_out > 0)
-				break;
-
-			// m_out_buffer is full, save it and continue compressing
-			m_sscsm_files->emplace_back(m_out_buffer, m_buffer_size);
-			m_out_buffer = new u8[m_buffer_size];
-			m_zstream.next_out = m_out_buffer;
-			m_zstream.avail_out = m_buffer_size;
-
-		} while (m_zstream.avail_in > 0);
-
-		delete[] buffer;
-		m_buffer_queue.pop();
-	}
-
-	if (!also_clear_m_buffer)
+	if (!size)
 		return;
 
-	m_zstream.next_in = m_buffer;
-	m_zstream.avail_in = m_buffer_offset;
+	m_zstream.next_in = buffer;
+	m_zstream.avail_in = size;
 
 	do {
-		ret = deflate(&m_zstream, Z_NO_FLUSH);
-		if (ret < 0)
+		if (deflate(&m_zstream, Z_NO_FLUSH) < 0)
 			throw SerializationError("SSCSMFileGrabber: deflate failed");
 
 		if (m_zstream.avail_out > 0)
@@ -206,4 +127,37 @@ void SSCSMFileGrabber::clearQueue(bool also_clear_m_buffer)
 		m_zstream.avail_out = m_buffer_size;
 
 	} while (m_zstream.avail_in > 0);
+}
+
+void SSCSMFileGrabber::addFile(const std::string &server_path,
+	const std::string &client_path)
+{
+	verbosestream << "[Server] adding sscsm-file from " << server_path << " to " <<
+			client_path << std::endl;
+
+	// Read the file
+	std::ifstream file(server_path, std::ios::binary | std::ios::ate);
+	std::streamsize content_size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	u8 *content_buffer = new u8[content_size];
+	file.read((char*)content_buffer, content_size);
+	file.close();
+
+	// Write file Header
+	u8 path_length = client_path.length();
+	u8 *header_buffer = new u8[1 + path_length + 4];
+
+	writeU8(header_buffer, client_path.length());
+	const char *client_path_c = client_path.c_str();
+	for (u8 i = 0; i < path_length; i++)
+		header_buffer[i + 1] = client_path_c[i];
+	writeU32(header_buffer + 1 + path_length, content_size);
+	compressBuffer(header_buffer, 1 + path_length + 4);
+
+	delete[] header_buffer;
+
+	// Write file content
+	compressBuffer(content_buffer, content_size);
+
+	delete[] content_buffer;
 }

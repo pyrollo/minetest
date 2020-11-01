@@ -159,22 +159,22 @@ void SSCSMFileDownloader::readBunches()
 					m_current_file_path = "";
 					continue;
 				}
-				// prepare step 4
-				m_zstream.next_out = m_buffer;
-				m_zstream.avail_out = MYMIN(m_read_length, m_buffer_size);
 			}
 
 			continue;
 
 		} else { // step 4
 			// read the file and write it
+			m_zstream.next_out = m_buffer;
+			m_zstream.avail_out = MYMIN(m_read_length, m_buffer_size);
+
 			ret = inflate(&m_zstream, Z_SYNC_FLUSH);
 			if (ret < 0)
 				throw SerializationError("SSCSMFileDownloader: inflate failed (step 4)");
 
-			if (m_zstream.avail_out == 0) {
+			if (m_zstream.avail_out < MYMIN(m_read_length, m_buffer_size)) {
 				// append to the file
-				u32 readc = MYMIN(m_read_length, m_buffer_size);
+				u32 readc = MYMIN(m_read_length, m_buffer_size) - m_zstream.avail_out;
 				if (m_remaining_disk_space < readc) {
 					// todo: translate this?
 					// todo: SerializationError is probably not correct
@@ -190,7 +190,6 @@ void SSCSMFileDownloader::readBunches()
 				if (m_read_length > 0) {
 					// do step 4 again
 					m_zstream.next_out = m_buffer;
-					m_zstream.avail_out = MYMIN(m_read_length, m_buffer_size);
 				} else {
 					// prepare step 1
 					m_current_file_path = "";
