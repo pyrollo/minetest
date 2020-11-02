@@ -636,10 +636,24 @@ int ScriptApiSecurity::sl_g_loadfile(lua_State *L)
 #endif
 	lua_pop(L, 1);
 
+	std::string mod_name = "";
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, CUSTOM_RIDX_CURRENT_MOD_NAME);
+	if (lua_isstring(L, -1)) {
+		mod_name = readParam<std::string>(L, -1);
+	} else {
+		std::string error_msg = "Coudln't determine caller mod name";
+		lua_pushnil(L);
+		lua_pushstring(L, error_msg.c_str());
+		return 2;
+	}
+	lua_pop(L, 1);  // Pop mod name
+
 	// Client implementation
 	if (script->getType() == ScriptingType::Client) {
 		std::string path = readParam<std::string>(L, 1);
-		const std::string *contents = script->getClient()->getModFile(path);
+#warning Script store stuff needed here
+		const std::string *contents = script->getClient()->getModFile(mod_name + ":" + path);
 		if (!contents) {
 			std::string error_msg = "Coudln't find script called: " + path;
 			lua_pushnil(L);
@@ -659,7 +673,7 @@ int ScriptApiSecurity::sl_g_loadfile(lua_State *L)
 	// Server sent implementation
 	if (script->getType() == ScriptingType::ServerSent) {
 		std::string path = readParam<std::string>(L, 1);
-		const std::string *contents = script->getClient()->getServerSentScript(path);
+		const std::string *contents = script->getClient()->getServerSentScript(mod_name + ":" + path);
 		if (!contents) {
 			std::string error_msg = "Coudln't find script called: " + path;
 			lua_pushnil(L);

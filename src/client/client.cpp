@@ -232,64 +232,11 @@ void Client::loadServerSentScripts()
 //	m_server_sent_script->setEnv(&m_env);
 
 	// Load builtin
-	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
-	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
+//	m_server_sent_script->loadModFromMemory(BUILTIN_MOD_NAME);
 
-	// TODO Uncomment when server-sent CSM and verifying of builtin are complete
-	/*
-	// Don't load client-provided mods if disabled by server
-	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOAD_CLIENT_MODS)) {
-		warningstream << "Client-provided mod loading is disabled by server." <<
-			std::endl;
-		// If builtin integrity is wrong, disconnect user
-		if (!checkBuiltinIntegrity()) {
-			// TODO disconnect user
-		}
-		return;
-	}
-	*/
+	m_server_sent_script->loadModFromMemory("sscsm");
 
-	ClientModConfiguration modconf(getClientModsLuaPath());
-	m_mods = modconf.getMods();
-	// complain about mods with unsatisfied dependencies
-	if (!modconf.isConsistent()) {
-		modconf.printUnsatisfiedModsError();
-		return;
-	}
-
-	// Print mods
-	infostream << "Client loading mods: ";
-	for (const ModSpec &mod : m_mods)
-		infostream << mod.name << " ";
-	infostream << std::endl;
-
-	// Load "mod" scripts
-	for (const ModSpec &mod : m_mods) {
-		if (!string_allowed(mod.name, MODNAME_ALLOWED_CHARS)) {
-			throw ModError("Error loading mod \"" + mod.name +
-				"\": Mod name does not follow naming conventions: "
-					"Only characters [a-z0-9_] are allowed.");
-		}
-		scanModIntoMemory(mod.name, mod.path);
-	}
-
-	// Run them
-	for (const ModSpec &mod : m_mods)
-		m_script->loadModFromMemory(mod.name);
-
-	// Mods are done loading. Unlock callbacks
-	m_mods_loaded = true;
-
-	// Run a callback when mods are loaded
-	m_script->on_mods_loaded();
-
-	// Create objects if they're ready
-	if (m_state == LC_Ready)
-		m_script->on_client_ready(m_env.getLocalPlayer());
-	if (m_camera)
-		m_script->on_camera_ready(m_camera);
-	if (m_minimap)
-		m_script->on_minimap_ready(m_minimap);
+	m_server_sent_scripts_loaded = true;
 }
 
 

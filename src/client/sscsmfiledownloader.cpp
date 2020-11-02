@@ -139,7 +139,7 @@ void SSCSMFileDownloader::readBunches()
 				if (m_zstream.avail_out == 0) {
 					// the file length was read
 					printf("Creating server sent script \"%s\" for mod \"%s\"\n", m_current_file_path.c_str(), m_current_mod_name.c_str());
-					(*m_script_vfs)[m_current_mod_name + DIR_DELIM +
+					(*m_script_vfs)[m_current_mod_name + ":" +
 							m_current_file_path] = "";
 
 					m_read_length = readU32(m_buffer);
@@ -160,9 +160,10 @@ void SSCSMFileDownloader::readBunches()
 				if (ret < 0)
 					throw SerializationError("SSCSMFileDownloader: inflate failed (phase file_content)");
 
-				if (m_zstream.avail_out < MYMIN(m_read_length, m_buffer_size)) {
+				u32 readc = MYMIN(m_read_length, m_buffer_size) - m_zstream.avail_out;
+
+				if (readc) {
 					// append to the file
-					u32 readc = MYMIN(m_read_length, m_buffer_size) - m_zstream.avail_out;
 					if (m_remaining_disk_space < readc) {
 						// todo: SerializationError is probably not correct
 						// todo: give more information (newlines?)
@@ -170,8 +171,8 @@ void SSCSMFileDownloader::readBunches()
 					}
 
 					m_remaining_disk_space -= readc;
-					(*m_script_vfs)[m_current_mod_name + DIR_DELIM +
-							m_current_file_path].append((char *)(m_buffer));
+					(*m_script_vfs)[m_current_mod_name + ":" +
+							m_current_file_path].append((char *)(m_buffer), readc);
 					m_read_length -= readc;
 				}
 				if (m_read_length)
