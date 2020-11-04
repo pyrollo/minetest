@@ -32,20 +32,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client/client.h"
 #endif
 
-
-extern "C" {
-#include "lualib.h"
-#if USE_LUAJIT
-	#include "luajit.h"
-#endif
-}
-
-#include <cstdio>
-#include <cstdarg>
-#include "script/common/c_content.h"
-#include <sstream>
-
-
 class ModNameStorer
 {
 private:
@@ -66,13 +52,24 @@ public:
 	}
 };
 
+extern "C" {
+#include "lualib.h"
+#if USE_LUAJIT
+	#include "luajit.h"
+#endif
+}
+
+#include <cstdio>
+#include <cstdarg>
+#include "script/common/c_content.h"
+#include <sstream>
 
 /*
 	ScriptApiBase
 */
 
 ScriptApiBase::ScriptApiBase(ScriptingType type):
-		m_type(type)
+	m_type(type)
 {
 #ifdef SCRIPTAPI_LOCK_DEBUG
 	m_lock_recursion_count = 0;
@@ -83,6 +80,7 @@ ScriptApiBase::ScriptApiBase(ScriptingType type):
 
 	lua_atpanic(m_luastack, &luaPanic);
 
+	// TO BE MOVED IN A VIRTUAL METHOD
 	if (m_type == ScriptingType::Client)
 		clientOpenLibs(m_luastack);
 	else
@@ -130,6 +128,20 @@ ScriptApiBase::ScriptApiBase(ScriptingType type):
 ScriptApiBase::~ScriptApiBase()
 {
 	lua_close(m_luastack);
+}
+
+ScriptApiBase *ScriptApiBase::getScriptApi(lua_State *L)
+{
+	// Get server from registry
+	lua_rawgeti(L, LUA_REGISTRYINDEX, CUSTOM_RIDX_SCRIPTAPI);
+	ScriptApiBase *script;
+#if INDIRECT_SCRIPTAPI_RIDX
+	script = (ScriptApiBase *) *(void**)(lua_touserdata(L, -1));
+#else
+	script = (ScriptApiBase *) lua_touserdata(L, -1);
+#endif
+	lua_pop(L, 1);
+	return script;
 }
 
 int ScriptApiBase::luaPanic(lua_State *L)
@@ -180,11 +192,9 @@ void ScriptApiBase::loadScript(const std::string &script_path)
 	int error_handler = PUSH_ERROR_HANDLER(L);
 
 	bool ok;
-	if (m_secure) {
-		ok = ScriptApiSecurity::safeLoadFile(L, script_path.c_str());
-	} else {
-		ok = !luaL_loadfile(L, script_path.c_str());
-	}
+
+	ok = loadFile(L, script_path.c_str());
+
 	ok = ok && !lua_pcall(L, 0, 0, error_handler);
 	if (!ok) {
 		const char *error_msg = lua_tostring(L, -1);
@@ -196,43 +206,6 @@ void ScriptApiBase::loadScript(const std::string &script_path)
 	}
 	lua_pop(L, 1); // Pop error handler
 }
-
-#ifndef SERVER
-void ScriptApiBase::loadModFromMemory(const std::string &mod_name)
-{
-	ModNameStorer mod_name_storer(getStack(), mod_name);
-
-	sanity_check(m_type == ScriptingType::Client || m_type == ScriptingType::ServerSent);
-
-	const std::string init_filename = mod_name + ":init.lua";
-	const std::string chunk_name = "@" + init_filename;
-
-#warning Needs a script storage stuff here
-	const std::string *contents = getClient()->getServerSentScript(init_filename);
-//	const std::string *contents = getClient()->getModFile(init_filename);
-	if (!contents)
-		throw ModError("Mod \"" + mod_name + "\" lacks init.lua");
-
-	verbosestream << "Loading and running script " << chunk_name << std::endl;
-
-	lua_State *L = getStack();
-
-	int error_handler = PUSH_ERROR_HANDLER(L);
-
-	bool ok = ScriptApiSecurity::safeLoadString(L, *contents, chunk_name.c_str());
-	if (ok)
-		ok = !lua_pcall(L, 0, 0, error_handler);
-	if (!ok) {
-		const char *error_msg = lua_tostring(L, -1);
-		if (!error_msg)
-			error_msg = "(error object is not a string)";
-		lua_pop(L, 2); // Pop error message and error handler
-		throw ModError("Failed to load and run mod \"" +
-				mod_name + "\":\n" + error_msg);
-	}
-	lua_pop(L, 1); // Pop error handler
-}
-#endif
 
 // Push the list of callbacks (a lua table).
 // Then push nargs arguments.

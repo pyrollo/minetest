@@ -1,7 +1,6 @@
 /*
 Minetest
-Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
-Copyright (C) 2017 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
+Copyright (C) 2020 pyrollo, Pierre-Yves Rollo <dev@pyrollo.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -20,30 +19,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #pragma once
 
+#include "util/string.h"
 #include "cpp_api/s_base.h"
-#include "cpp_api/s_client.h"
-#include "cpp_api/s_modchannels.h"
-#include "cpp_api/s_security.h"
-#include "cpp_api/s_code_storage.h"
 
-class Client;
-class LocalPlayer;
-class Camera;
-class Minimap;
-
-class ServerSentScripting:
-	virtual public ScriptApiBase,
-	public ScriptApiSecurity,
-	public ScriptApiMemoryStoredCode,
-	public ScriptApiClient,
-	public ScriptApiModChannels
+class ScriptApiMemoryStoredCode : virtual public ScriptApiBase
 {
 public:
-	ServerSentScripting(Client *client);
-	void on_client_ready(LocalPlayer *localplayer);
-	void on_camera_ready(Camera *camera);
-	void on_minimap_ready(Minimap *minimap);
-
+	bool getSourceCode(lua_State *L, const char *path, std::string &source_code, std::string &chunk_name);
+	void addSourceCode(const std::string &mod, const std::string &path, const std::string &source_code);
 private:
-	virtual void InitializeModApi(lua_State *L, int top);
+	StringMap m_source_code;
+};
+
+class ScriptApiFileStoredCode : virtual public ScriptApiBase
+{
+public:
+	bool getSourceCode(lua_State *L, const char *path, std::string &source_code, std::string &chunk_name);
 };

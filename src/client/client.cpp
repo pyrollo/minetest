@@ -226,7 +226,8 @@ void Client::loadServerSentScripts()
 	if (m_server_sent_scripts_loaded)
 		return;
 
-	m_server_sent_script = new ServerSentScripting(this);
+
+XXXXX
 #warning TODO: Environment server sent scripting
 //	m_env.setScript(m_server_sent_script);
 //	m_server_sent_script->setEnv(&m_env);
@@ -234,7 +235,7 @@ void Client::loadServerSentScripts()
 	// Load builtin
 //	m_server_sent_script->loadModFromMemory(BUILTIN_MOD_NAME);
 
-	m_server_sent_script->loadModFromMemory("sscsm");
+	m_server_sent_script->loadMod("init.lua", "sscsm");
 
 	m_server_sent_scripts_loaded = true;
 }
@@ -1994,6 +1995,7 @@ const std::string* Client::getModFile(std::string filename)
 	return &it->second;
 }
 
+/*
 const std::string* Client::getServerSentScript(std::string filename)
 {
 	// strip dir delimiter from beginning of path
@@ -2010,6 +2012,7 @@ const std::string* Client::getServerSentScript(std::string filename)
 		return nullptr;
 	return &it->second;
 }
+*/
 
 bool Client::registerModStorage(ModMetadata *storage)
 {

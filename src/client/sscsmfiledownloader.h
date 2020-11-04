@@ -7,10 +7,12 @@
 #include "util/numeric.h"
 #include "zlib.h"
 
+class ScriptApiMemoryStoredCode;
+
 class SSCSMFileDownloader
 {
 public:
-	SSCSMFileDownloader(u32 bunches_count, StringMap *vfs);
+	SSCSMFileDownloader(u32 bunches_count, ScriptApiMemoryStoredCode *code_storage);
 
 	~SSCSMFileDownloader();
 
@@ -55,7 +57,7 @@ private:
 	u32 m_bunches_count;
 	u32 m_next_bunch_index;
 
-	StringMap *m_script_vfs; // Where to store received scripts
+	ScriptApiMemoryStoredCode *m_code_storage; // Where to store received scripts
 
 	z_stream m_zstream;
 
@@ -65,6 +67,8 @@ private:
 	std::stringstream m_current_file_content;
 	std::string m_current_file_path;
 	std::string m_current_mod_name;
+	std::string m_current_code;
+
 	u32 m_read_length;
 
 	u64 m_remaining_disk_space;

@@ -377,7 +377,7 @@ public:
 	const std::string* getModFile(std::string filename);
 
 	// Server sent scripting
-	const std::string* getServerSentScript(std::string filename);
+//	const std::string* getServerSentScript(std::string filename);
 
 	std::string getModStoragePath() const override;
 	bool registerModStorage(ModMetadata *meta) override;
@@ -608,7 +608,6 @@ private:
 
 	// Server Sent Scripts
 	ServerSentScripting *m_server_sent_script = nullptr;
-	StringMap m_server_scripts_vfs;
 
 	bool m_shutdown = false;
 

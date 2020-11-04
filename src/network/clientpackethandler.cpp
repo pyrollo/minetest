@@ -44,6 +44,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "tileanimation.h"
 #include "gettext.h"
 #include "skyparams.h"
+#include "script/scripting_server_sent.h"
 
 void Client::handleCommand_Deprecated(NetworkPacket* pkt)
 {
@@ -1566,8 +1567,12 @@ void Client::handleCommand_SSCSMFileBunch(NetworkPacket *pkt) //hier
 	for (u32 i = 0; i < size; i++) // todo: there might be a more efficient way to copy this
 		*pkt >> buffer[i];
 
+	if (!m_server_sent_script)
+		m_server_sent_script = new ServerSentScripting(this);
+
 	if (!m_sscsm_file_downloader)
-		m_sscsm_file_downloader = new SSCSMFileDownloader(file_bunches_count, &m_server_scripts_vfs);
+		m_sscsm_file_downloader = new SSCSMFileDownloader(file_bunches_count,
+				(ScriptApiMemoryStoredCode *)m_server_sent_script);
 
 	bool finished = m_sscsm_file_downloader->addBunch(i, buffer, size);
 	if (finished) {

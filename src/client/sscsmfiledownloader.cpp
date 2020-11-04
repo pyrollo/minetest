@@ -6,6 +6,7 @@
 #include <fstream>
 #include "settings.h"
 #include "exceptions.h"
+#include "cpp_api/s_code_storage.h"
 
 /*
  * data in decompressed buffers:
@@ -20,9 +21,11 @@
  */
 
 
-SSCSMFileDownloader::SSCSMFileDownloader(u32 bunches_count, StringMap *vfs) :
+SSCSMFileDownloader::SSCSMFileDownloader(u32 bunches_count,
+		ScriptApiMemoryStoredCode *code_storage) :
 	m_bunches(), m_bunches_count(bunches_count), m_next_bunch_index(0),
-	m_script_vfs(vfs), m_current_file_path(""), m_read_length(0)
+	m_code_storage(code_storage), m_current_file_path(""),
+	m_read_length(0)
 {
 	m_remaining_disk_space = g_settings->getU64("sscsm_file_size_limit");
 
@@ -139,12 +142,14 @@ void SSCSMFileDownloader::readBunches()
 				if (m_zstream.avail_out == 0) {
 					// the file length was read
 					printf("Creating server sent script \"%s\" for mod \"%s\"\n", m_current_file_path.c_str(), m_current_mod_name.c_str());
-					(*m_script_vfs)[m_current_mod_name + ":" +
-							m_current_file_path] = "";
+					m_current_code = "";
 
 					m_read_length = readU32(m_buffer);
 					if (m_read_length == 0) {
 						// empty file, next file
+						m_code_storage->addSourceCode(
+								m_current_mod_name, m_current_file_path,
+								m_current_code);
 						m_phase = mod_len;
 						continue;
 					}
@@ -171,12 +176,15 @@ void SSCSMFileDownloader::readBunches()
 					}
 
 					m_remaining_disk_space -= readc;
-					(*m_script_vfs)[m_current_mod_name + ":" +
-							m_current_file_path].append((char *)(m_buffer), readc);
+					m_current_code.append((char *)(m_buffer), readc);
 					m_read_length -= readc;
 				}
 				if (m_read_length)
 					break;
+
+				m_code_storage->addSourceCode(m_current_mod_name,
+						m_current_file_path, m_current_code);
+				m_current_code = "";
 
 				// Next file
 				m_phase = mod_len;
