@@ -54,6 +54,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "serialization.h"
 #include "guiscalingfilter.h"
 #include "script/scripting_client.h"
+#include "script/cpp_api/s_code_storage.h"
 #include "game.h"
 #include "chatmessage.h"
 #include "translation.h"
@@ -156,8 +157,8 @@ void Client::loadMods()
 	m_script->setEnv(&m_env);
 
 	// Load builtin
-	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
-	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
+	scanModIntoMemory(m_script, BUILTIN_MOD_NAME, getBuiltinLuaPath());
+	m_script->loadMod("init.lua", BUILTIN_MOD_NAME);
 
 	// TODO Uncomment when server-sent CSM and verifying of builtin are complete
 	/*
@@ -194,12 +195,12 @@ void Client::loadMods()
 				"\": Mod name does not follow naming conventions: "
 					"Only characters [a-z0-9_] are allowed.");
 		}
-		scanModIntoMemory(mod.name, mod.path);
+		scanModIntoMemory(m_script, mod.name, mod.path);
 	}
 
 	// Run them
 	for (const ModSpec &mod : m_mods)
-		m_script->loadModFromMemory(mod.name);
+		m_script->loadMod("init.lua", mod.name);
 
 	// Mods are done loading. Unlock callbacks
 	m_mods_loaded = true;
@@ -222,22 +223,23 @@ bool Client::checkBuiltinIntegrity()
 	return true;
 }
 
-void Client::scanModSubfolder(const std::string &mod_name, const std::string &mod_path,
-			std::string mod_subpath)
+void Client::scanModSubfolder(ScriptApiMemoryStoredCode *script,
+		const std::string &mod_name, const std::string &mod_path,
+		std::string mod_subpath)
 {
 	std::string full_path = mod_path + DIR_DELIM + mod_subpath;
 	std::vector<fs::DirListNode> mod = fs::GetDirListing(full_path);
 	for (const fs::DirListNode &j : mod) {
 		if (j.dir) {
-			scanModSubfolder(mod_name, mod_path, mod_subpath + j.name + DIR_DELIM);
+			scanModSubfolder(script, mod_name, mod_path, mod_subpath + j.name + DIR_DELIM);
 			continue;
 		}
 		std::replace(mod_subpath.begin(), mod_subpath.end(), DIR_DELIM_CHAR, '/');
 
 		std::string real_path = full_path + j.name;
-		std::string vfs_path = mod_name + ":" + mod_subpath + j.name;
 		infostream << "Client::scanModSubfolder(): Loading \"" << real_path
-				<< "\" as \"" << vfs_path << "\"." << std::endl;
+				<< "\" as \"" << mod_name << ":" << mod_subpath << j.name
+				<< "\"." << std::endl;
 
 		std::string contents;
 		if (!fs::ReadFile(real_path, contents)) {
@@ -246,7 +248,7 @@ void Client::scanModSubfolder(const std::string &mod_name, const std::string &mo
 			continue;
 		}
 
-		m_mod_vfs.emplace(vfs_path, contents);
+		script->addSourceCode(mod_name, mod_subpath + j.name, contents);
 	}
 }
 
@@ -1946,23 +1948,6 @@ scene::IAnimatedMesh* Client::getMesh(const std::string &filename, bool cache)
 	if (!cache)
 		RenderingEngine::get_mesh_cache()->removeMesh(mesh);
 	return mesh;
-}
-
-const std::string* Client::getModFile(std::string filename)
-{
-	// strip dir delimiter from beginning of path
-	auto pos = filename.find_first_of(':');
-	if (pos == std::string::npos)
-		return nullptr;
-	pos++;
-	auto pos2 = filename.find_first_not_of('/', pos);
-	if (pos2 > pos)
-		filename.erase(pos, pos2 - pos);
-
-	StringMap::const_iterator it = m_mod_vfs.find(filename);
-	if (it == m_mod_vfs.end())
-		return nullptr;
-	return &it->second;
 }
 
 bool Client::registerModStorage(ModMetadata *storage)

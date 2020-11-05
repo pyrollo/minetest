@@ -64,6 +64,7 @@ class NetworkPacket;
 namespace con {
 class Connection;
 }
+class ScriptApiMemoryStoredCode;
 
 enum LocalClientState {
 	LC_Created,
@@ -131,11 +132,14 @@ public:
 	DISABLE_CLASS_COPY(Client);
 
 	// Load local mods into memory
-	void scanModSubfolder(const std::string &mod_name, const std::string &mod_path,
-				std::string mod_subpath);
-	inline void scanModIntoMemory(const std::string &mod_name, const std::string &mod_path)
+	void scanModSubfolder(ScriptApiMemoryStoredCode *script,
+			const std::string &mod_name, const std::string &mod_path,
+			std::string mod_subpath);
+
+	inline void scanModIntoMemory(ScriptApiMemoryStoredCode *script,
+			const std::string &mod_name, const std::string &mod_path)
 	{
-		scanModSubfolder(mod_name, mod_path, "");
+		scanModSubfolder(script, mod_name, mod_path, "");
 	}
 
 	/*
@@ -369,7 +373,6 @@ public:
 	bool checkLocalPrivilege(const std::string &priv)
 	{ return checkPrivilege(priv); }
 	virtual scene::IAnimatedMesh* getMesh(const std::string &filename, bool cache = false);
-	const std::string* getModFile(std::string filename);
 
 	std::string getModStoragePath() const override;
 	bool registerModStorage(ModMetadata *meta) override;
@@ -591,7 +594,6 @@ private:
 	std::unordered_map<std::string, ModMetadata *> m_mod_storages;
 	float m_mod_storage_save_timer = 10.0f;
 	std::vector<ModSpec> m_mods;
-	StringMap m_mod_vfs;
 
 	bool m_shutdown = false;
 

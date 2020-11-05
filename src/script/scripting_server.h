@@ -27,6 +27,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "cpp_api/s_player.h"
 #include "cpp_api/s_server.h"
 #include "cpp_api/s_security.h"
+#include "cpp_api/s_code_storage.h"
 
 /*****************************************************************************/
 /* Scripting <-> Server Game Interface                                       */
@@ -41,7 +42,8 @@ class ServerScripting:
 		public ScriptApiNode,
 		public ScriptApiPlayer,
 		public ScriptApiServer,
-		public ScriptApiSecurity
+		public ScriptApiSecurity,
+		public ScriptApiFileStoredCode
 {
 public:
 	ServerScripting(Server* server);

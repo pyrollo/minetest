@@ -53,10 +53,14 @@ public:
 	// Loads a string as Lua code safely (doesn't allow bytecode).
 	static bool safeLoadString(lua_State *L, const std::string &code, const char *chunk_name);
 	// Loads a file as Lua code safely (doesn't allow bytecode).
-	static bool safeLoadFile(lua_State *L, const char *path);
+	static bool safeLoadFile(lua_State *L, const std::string &path);
 	// Checks if mods are allowed to read (and optionally write) to the path
 	static bool checkPath(lua_State *L, const char *path, bool write_required,
 			bool *write_allowed=NULL);
+
+protected:
+	bool loadFile(lua_State *L, const std::string &path) override
+		{ return safeLoadFile(L, path); };
 
 private:
 	// Syntax: "sl_" <Library name or 'g' (global)> '_' <Function name>

@@ -383,71 +383,18 @@ bool ScriptApiSecurity::safeLoadString(lua_State *L, const std::string &code, co
 	return true;
 }
 
-bool ScriptApiSecurity::safeLoadFile(lua_State *L, const char *path)
+bool ScriptApiSecurity::safeLoadFile(lua_State *L, const std::string &path)
 {
-	FILE *fp;
-	char *chunk_name;
-	if (!path) {
-		fp = stdin;
-		chunk_name = const_cast<char *>("=stdin");
-	} else {
-		fp = fopen(path, "rb");
-		if (!fp) {
-			lua_pushfstring(L, "%s: %s", path, strerror(errno));
-			return false;
-		}
-		chunk_name = new char[strlen(path) + 2];
-		chunk_name[0] = '@';
-		chunk_name[1] = '\0';
-		strcat(chunk_name, path);
-	}
 
-	size_t start = 0;
-	int c = std::getc(fp);
-	if (c == '#') {
-		// Skip the first line
-		while ((c = std::getc(fp)) != EOF && c != '\n') {}
-		if (c == '\n')
-			std::getc(fp);
-		start = std::ftell(fp);
-	}
+	ScriptApiBase *script = getScriptApiBase(L);
 
-	// Read the file
-	int ret = std::fseek(fp, 0, SEEK_END);
-	if (ret) {
-		lua_pushfstring(L, "%s: %s", path, strerror(errno));
-		if (path) {
-			std::fclose(fp);
-			delete [] chunk_name;
-		}
+	std::string code;
+	std::string chunk_name;
+
+	if (!script->getSourceCode(L, path, code, chunk_name))
 		return false;
-	}
 
-	size_t size = std::ftell(fp) - start;
-	std::string code(size, '\0');
-	ret = std::fseek(fp, start, SEEK_SET);
-	if (ret) {
-		lua_pushfstring(L, "%s: %s", path, strerror(errno));
-		if (path) {
-			std::fclose(fp);
-			delete [] chunk_name;
-		}
-		return false;
-	}
-
-	size_t num_read = std::fread(&code[0], 1, size, fp);
-	if (path)
-		std::fclose(fp);
-	if (num_read != size) {
-		lua_pushliteral(L, "Error reading file to load.");
-		if (path)
-			delete [] chunk_name;
-		return false;
-	}
-
-	bool result = safeLoadString(L, code, chunk_name);
-	if (path)
-		delete [] chunk_name;
+	bool result = safeLoadString(L, code, chunk_name.c_str());
 	return result;
 }
 
@@ -618,43 +565,12 @@ int ScriptApiSecurity::sl_g_load(lua_State *L)
 
 int ScriptApiSecurity::sl_g_loadfile(lua_State *L)
 {
-#ifndef SERVER
-	ScriptApiBase *script = getScriptApiBase(L);
-
-	// Client implementation
-	if (script->getType() == ScriptingType::Client) {
-		std::string path = readParam<std::string>(L, 1);
-		const std::string *contents = script->getClient()->getModFile(path);
-		if (!contents) {
-			std::string error_msg = "Coudln't find script called: " + path;
-			lua_pushnil(L);
-			lua_pushstring(L, error_msg.c_str());
-			return 2;
-		}
-
-		std::string chunk_name = "@" + path;
-		if (!safeLoadString(L, *contents, chunk_name.c_str())) {
-			lua_pushnil(L);
-			lua_insert(L, -2);
-			return 2;
-		}
-		return 1;
-	}
-#endif
-
-	// Server implementation
-	const char *path = NULL;
-	if (lua_isstring(L, 1)) {
-		path = lua_tostring(L, 1);
-		CHECK_SECURE_PATH_INTERNAL(L, path, false, NULL);
-	}
-
-	if (!safeLoadFile(L, path)) {
+	std::string path = readParam<std::string>(L, 1);
+	if (!safeLoadFile(L, path.c_str())) {
 		lua_pushnil(L);
 		lua_insert(L, -2);
 		return 2;
 	}
-
 	return 1;
 }
 

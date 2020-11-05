@@ -90,10 +90,6 @@ public:
 	void loadMod(const std::string &script_path, const std::string &mod_name);
 	void loadScript(const std::string &script_path);
 
-#ifndef SERVER
-	void loadModFromMemory(const std::string &mod_name);
-#endif
-
 	void runCallbacksRaw(int nargs,
 		RunCallbacksMode mode, const char *fxn);
 
@@ -113,6 +109,10 @@ public:
 	void setOriginFromTableRaw(int index, const char *fxn);
 
 	void clientOpenLibs(lua_State *L);
+
+	virtual bool getSourceCode(lua_State *L, const std::string &path,
+			std::string &source_code, std::string &chunk_name)
+		{ return false; };
 
 protected:
 	friend class LuaABM;
@@ -152,6 +152,9 @@ protected:
 	int             m_lock_recursion_count{};
 	std::thread::id m_owning_thread;
 #endif
+
+	virtual bool loadFile(lua_State *L, const std::string &path)
+			{ return !luaL_loadfile(L, path.c_str()); };
 
 	static ScriptApiBase *getScriptApiBase(lua_State *L);
 
