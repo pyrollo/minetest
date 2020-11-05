@@ -452,3 +452,16 @@ Client* ScriptApiBase::getClient()
 	return dynamic_cast<Client *>(m_gamedef);
 }
 #endif
+
+ScriptApiBase *ScriptApiBase::getScriptApiBase(lua_State *L)
+{
+	lua_rawgeti(L, LUA_REGISTRYINDEX, CUSTOM_RIDX_SCRIPTAPI);
+#if INDIRECT_SCRIPTAPI_RIDX
+	ScriptApiBase *script = (ScriptApiBase *) *(void**)(lua_touserdata(L, -1));
+#else
+	ScriptApiBase *script = (ScriptApiBase *) lua_touserdata(L, -1);
+#endif
+	lua_pop(L, 1);
+
+	return script;
+};

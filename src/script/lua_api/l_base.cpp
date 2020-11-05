@@ -28,16 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 ScriptApiBase *ModApiBase::getScriptApiBase(lua_State *L)
 {
-	// Get server from registry
-	lua_rawgeti(L, LUA_REGISTRYINDEX, CUSTOM_RIDX_SCRIPTAPI);
-	ScriptApiBase *sapi_ptr;
-#if INDIRECT_SCRIPTAPI_RIDX
-	sapi_ptr = (ScriptApiBase*) *(void**)(lua_touserdata(L, -1));
-#else
-	sapi_ptr = (ScriptApiBase*) lua_touserdata(L, -1);
-#endif
-	lua_pop(L, 1);
-	return sapi_ptr;
+	return ScriptApiBase::getScriptApiBase(L);
 }
 
 Server *ModApiBase::getServer(lua_State *L)

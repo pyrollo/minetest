@@ -153,6 +153,8 @@ protected:
 	std::thread::id m_owning_thread;
 #endif
 
+	static ScriptApiBase *getScriptApiBase(lua_State *L);
+
 private:
 	static int luaPanic(lua_State *L);
 
