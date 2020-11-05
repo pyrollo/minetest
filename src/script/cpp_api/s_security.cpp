@@ -383,12 +383,10 @@ bool ScriptApiSecurity::safeLoadString(lua_State *L, const std::string &code, co
 	return true;
 }
 
-bool ScriptApiSecurity::safeLoadFile(lua_State *L, const char *path, const char *display_name)
+bool ScriptApiSecurity::safeLoadFile(lua_State *L, const char *path)
 {
 	FILE *fp;
 	char *chunk_name;
-	if (!display_name)
-		display_name = path;
 	if (!path) {
 		fp = stdin;
 		chunk_name = const_cast<char *>("=stdin");
@@ -398,10 +396,10 @@ bool ScriptApiSecurity::safeLoadFile(lua_State *L, const char *path, const char 
 			lua_pushfstring(L, "%s: %s", path, strerror(errno));
 			return false;
 		}
-		chunk_name = new char[strlen(display_name) + 2];
+		chunk_name = new char[strlen(path) + 2];
 		chunk_name[0] = '@';
 		chunk_name[1] = '\0';
-		strcat(chunk_name, display_name);
+		strcat(chunk_name, path);
 	}
 
 	size_t start = 0;
