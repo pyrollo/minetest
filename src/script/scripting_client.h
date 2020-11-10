@@ -40,6 +40,7 @@ class ClientScripting:
 {
 public:
 	ClientScripting(Client *client);
+	void openLibs(lua_State *L) override;
 	void on_client_ready(LocalPlayer *localplayer);
 	void on_camera_ready(Camera *camera);
 	void on_minimap_ready(Minimap *minimap);

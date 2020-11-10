@@ -99,7 +99,6 @@ public:
 
 	IGameDef *getGameDef() { return m_gamedef; }
 	Server* getServer();
-	ScriptingType getType() { return m_type; }
 #ifndef SERVER
 	Client* getClient();
 #endif
@@ -108,7 +107,8 @@ public:
 	void setOriginDirect(const char *origin);
 	void setOriginFromTableRaw(int index, const char *fxn);
 
-	void clientOpenLibs(lua_State *L);
+	virtual void openLibs(lua_State *L)
+		{ luaL_openlibs(m_luastack); }; // Shouldn't it be nothing by default ?
 
 	virtual bool getSourceCode(lua_State *L, const std::string &path,
 			std::string &source_code, std::string &chunk_name)

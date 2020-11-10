@@ -62,6 +62,27 @@ ClientScripting::ClientScripting(Client *client):
 	infostream << "SCRIPTAPI: Initialized client game modules" << std::endl;
 }
 
+void ClientScripting::openLibs(lua_State *L)
+{
+	static const std::vector<std::pair<std::string, lua_CFunction>> libs = {
+		{ "", luaopen_base },
+		{ LUA_TABLIBNAME,  luaopen_table   },
+		{ LUA_OSLIBNAME,   luaopen_os      },
+		{ LUA_STRLIBNAME,  luaopen_string  },
+		{ LUA_MATHLIBNAME, luaopen_math    },
+		{ LUA_DBLIBNAME,   luaopen_debug   },
+#if USE_LUAJIT
+		{ LUA_JITLIBNAME,  luaopen_jit     },
+#endif
+	};
+
+	for (const std::pair<std::string, lua_CFunction> &lib : libs) {
+	    lua_pushcfunction(L, lib.second);
+	    lua_pushstring(L, lib.first.c_str());
+	    lua_call(L, 1, 0);
+	}
+}
+
 void ClientScripting::InitializeModApi(lua_State *L, int top)
 {
 	LuaItemStack::Register(L);
