@@ -413,6 +413,11 @@ public:
 		return m_disk_timestamp;
 	}
 
+	inline u64 getCreationTimestamp()
+	{
+		return m_creation_timestamp;
+	}
+
 	////
 	//// Usage timer (see m_usage_timer)
 	////
@@ -607,6 +612,7 @@ private:
 	// The on-disk (or to-be on-disk) timestamp value
 	u32 m_disk_timestamp = BLOCK_TIMESTAMP_UNDEFINED;
 
+	u64 m_creation_timestamp;
 	/*
 		When the block is accessed, this is set to 0.
 		Map will unload the block when this reaches a timeout.

@@ -72,6 +72,7 @@ MapBlock::MapBlock(Map *parent, v3s16 pos, IGameDef *gamedef, bool dummy):
 		m_pos_relative(pos * MAP_BLOCKSIZE),
 		m_gamedef(gamedef)
 {
+	m_creation_timestamp = porting::getTimeMs();
 	if (!dummy)
 		reallocate();
 }
