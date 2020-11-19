@@ -186,9 +186,11 @@ CachedMapBlockData* MeshUpdateQueue::cacheBlock(Map *map, v3s16 p, UpdateMode mo
 					new MapNode[MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE];
 		memcpy(cached_block->data, b->getData(),
 				MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE * sizeof(MapNode));
+		cached_block->timestamp = b->getCreationTimestamp();
 	} else {
 		delete[] cached_block->data;
 		cached_block->data = nullptr;
+		cached_block->timestamp = 0;
 	}
 	return cached_block;
 }
@@ -207,7 +209,10 @@ void MeshUpdateQueue::fillDataFromMapBlockCache(QueuedMeshUpdate *q)
 	MeshMakeData *data = new MeshMakeData(m_client, m_cache_enable_shaders);
 	q->data = data;
 
-	data->fillBlockDataBegin(q->p);
+	{
+		CachedMapBlockData *cached_block = getCachedBlock(q->p);
+		data->fillBlockDataBegin(q->p, (cached_block)?cached_block->timestamp:0);
+	}
 
 	std::time_t t_now = std::time(0);
 

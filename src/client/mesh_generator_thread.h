@@ -28,6 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 struct CachedMapBlockData
 {
 	v3s16 p = v3s16(-1337, -1337, -1337);
+	u64 timestamp = 0;
 	MapNode *data = nullptr; // A copy of the MapBlock's data member
 	int refcount_from_queue = 0;
 	std::time_t last_used_timestamp = std::time(0);

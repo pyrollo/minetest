@@ -40,11 +40,12 @@ MeshMakeData::MeshMakeData(Client *client, bool use_shaders):
 	m_use_shaders(use_shaders)
 {}
 
-void MeshMakeData::fillBlockDataBegin(const v3s16 &blockpos)
+void MeshMakeData::fillBlockDataBegin(const v3s16 &blockpos, u64 timestamp)
 {
 	m_blockpos = blockpos;
 
 	v3s16 blockpos_nodes = m_blockpos*MAP_BLOCKSIZE;
+	m_timestamp = timestamp;
 
 	m_vmanip.clear();
 	VoxelArea voxel_area(blockpos_nodes - v3s16(1,1,1) * MAP_BLOCKSIZE,
@@ -64,7 +65,7 @@ void MeshMakeData::fillBlockData(const v3s16 &block_offset, MapNode *data)
 
 void MeshMakeData::fill(MapBlock *block)
 {
-	fillBlockDataBegin(block->getPos());
+	fillBlockDataBegin(block->getPos(), block->getCreationTimestamp());
 
 	fillBlockData(v3s16(0,0,0), block->getData());
 

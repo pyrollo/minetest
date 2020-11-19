@@ -40,6 +40,8 @@ struct MeshMakeData
 {
 	VoxelManipulator m_vmanip;
 	v3s16 m_blockpos = v3s16(-1337,-1337,-1337);
+	u64 m_timestamp;
+
 	v3s16 m_crack_pos_relative = v3s16(-1337,-1337,-1337);
 	bool m_smooth_lighting = false;
 
@@ -51,7 +53,7 @@ struct MeshMakeData
 	/*
 		Copy block data manually (to allow optimizations by the caller)
 	*/
-	void fillBlockDataBegin(const v3s16 &blockpos);
+	void fillBlockDataBegin(const v3s16 &blockpos, u64 timestamp);
 	void fillBlockData(const v3s16 &block_offset, MapNode *data);
 
 	/*
