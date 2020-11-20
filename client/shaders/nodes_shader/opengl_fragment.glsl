@@ -1,4 +1,7 @@
 uniform sampler2D baseTexture;
+uniform sampler2D mapblockTexture;
+//--> isampler2D ?
+uniform int mapblockTextureAge;
 
 uniform vec4 skyBgColor;
 uniform float fogDistance;
@@ -46,7 +49,7 @@ vec4 applyToneMapping(vec4 color)
 	const float gamma = 1.6;
 	const float exposureBias = 5.5;
 	color.rgb = uncharted2Tonemap(exposureBias * color.rgb);
-	// Precalculated white_scale from 
+	// Precalculated white_scale from
 	//vec3 whiteScale = 1.0 / uncharted2Tonemap(vec3(W));
 	vec3 whiteScale = vec3(1.036015346);
 	color.rgb *= whiteScale;
@@ -58,6 +61,11 @@ void main(void)
 {
 	vec3 color;
 	vec2 uv = varTexCoord.st;
+
+	float age = texture2D(mapblockTexture, vec2(0, 0)).r;
+//	float age = texelFetch(mapblockTexture, ivec2(0, 0),1).r; // Requires v130
+
+	age = clamp(age + float(mapblockTextureAge) / 256.0f, 0.0, 1.0);
 
 	vec4 base = texture2D(baseTexture, uv).rgba;
 #ifdef USE_DISCARD
@@ -72,7 +80,7 @@ void main(void)
 	color = base.rgb;
 
 	vec4 col = vec4(color.rgb * varColor.rgb, 1.0);
-	
+
 #ifdef ENABLE_TONE_MAPPING
 	col = applyToneMapping(col);
 #endif
@@ -88,8 +96,12 @@ void main(void)
 	// Note: clarity = (1 - fogginess)
 	float clarity = clamp(fogShadingParameter
 		- fogShadingParameter * length(eyeVec) / fogDistance, 0.0, 1.0);
+
+	clarity = clarity * age;
 	col = mix(skyBgColor, col, clarity);
 	col = vec4(col.rgb, base.a);
 
 	gl_FragColor = col;
 }
+
+

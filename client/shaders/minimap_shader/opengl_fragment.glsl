@@ -2,6 +2,8 @@ uniform sampler2D baseTexture;
 uniform sampler2D normalTexture;
 uniform vec3 yawVec;
 
+//uniform sampler2D float_texture;
+
 varying lowp vec4 varColor;
 varying mediump vec2 varTexCoord;
 

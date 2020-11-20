@@ -1593,6 +1593,27 @@ void Client::addUpdateMeshTask(v3s16 p, bool ack_to_server, bool urgent)
 	if (b == NULL)
 		return;
 
+	// Create mapblock associated texture for future use in shader
+	// TODO: Better and more accurate condition
+	if (g_settings->getBool("enable_shaders")) {
+		video::IVideoDriver *driver = RenderingEngine::get_video_driver();
+
+		std::string tname = "__shaderMapblockTexture"
+			+ std::to_string(p.X) + "_"
+			+ std::to_string(p.Y) + "_"
+			+ std::to_string(p.Z);
+
+		if (!m_tsrc->isKnownSourceImage(tname.c_str())) {
+			video::IImage *image = driver->createImage(
+				video::ECF_A8R8G8B8, core::dimension2d<u32>(1, 1));
+			sanity_check(image != NULL);
+			m_tsrc->insertSourceImage(tname.c_str(), image);
+			image->drop();
+		}
+		video::ITexture *txt = m_tsrc->getTexture(tname.c_str());
+		sanity_check(txt != NULL);
+	}
+
 	m_mesh_update_thread.updateBlock(&m_env.getMap(), p, ack_to_server, urgent);
 }
 

@@ -412,7 +412,7 @@ typedef f32 SamplerLayer_t;
 typedef s32 SamplerLayer_t;
 #endif
 
-
+static u64 testpyr = 0;
 class GameGlobalShaderConstantSetter : public IShaderConstantSetter
 {
 	Sky *m_sky;
@@ -430,6 +430,9 @@ class GameGlobalShaderConstantSetter : public IShaderConstantSetter
 	CachedPixelShaderSetting<float, 3> m_camera_offset_pixel;
 	CachedPixelShaderSetting<float, 3> m_camera_offset_vertex;
 	CachedPixelShaderSetting<SamplerLayer_t> m_base_texture;
+	CachedPixelShaderSetting<SamplerLayer_t> m_mapblock_texture;
+	CachedPixelShaderSetting<int> m_mapblock_texture_age;
+
 	Client *m_client;
 
 public:
@@ -462,6 +465,8 @@ public:
 		m_camera_offset_pixel("cameraOffset"),
 		m_camera_offset_vertex("cameraOffset"),
 		m_base_texture("baseTexture"),
+		m_mapblock_texture("mapblockTexture"),
+		m_mapblock_texture_age("mapblockTextureAge"),
 		m_client(client)
 	{
 		g_settings->registerChangedCallback("enable_fog", settingsCallback, this);
@@ -551,6 +556,37 @@ public:
 
 		SamplerLayer_t base_tex = 0;
 		m_base_texture.set(&base_tex, services);
+
+		SamplerLayer_t mapblock_tex = 3;
+		m_mapblock_texture.set(&mapblock_tex, services);
+
+		s32 age = porting::getTimeMs() -
+			m_client->getEnv().getClientMap().m_mapblock_texture_timestamp;
+
+		m_mapblock_texture_age.set(&age, services);
+
+if (age != testpyr) {
+	printf("age = %d\n", age);
+	testpyr = age;
+}
+// >PYR
+/*
+		s32 ages_size[3];
+		s32 ages_offset[3];
+
+		MapBlockAges *ages = m_client->getEnv().getClientMap().getMapBlockAges();
+		ages_size[0] = ages->size.X;
+		ages_size[1] = ages->size.Y;
+		ages_size[2] = ages->size.Z;
+		ages_offset[0] = ages->offset.X;
+		ages_offset[1] = ages->offset.Y;
+		ages_offset[2] = ages->offset.Z;
+
+		services->setVertexShaderConstant("mapBlocksAgesSize", ages_size, 3);
+		services->setVertexShaderConstant("mapBlocksAgesOffset", ages_offset, 3);
+		services->setVertexShaderConstant("mapBlocksMapAges", ages->ages, ages->size.X * ages->size.Y * ages->size.Z);
+*/
+// <PYR
 	}
 };
 

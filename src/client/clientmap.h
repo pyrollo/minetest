@@ -34,7 +34,18 @@ struct MapDrawControl
 	// show a wire frame for debugging
 	bool show_wireframe = false;
 };
+/*
+struct MapBlockAges {
+	v3s16 size = v3s16(0, 0, 0);
+	v3s16 offset = v3s16(0, 0, 0);
+	s32 *ages = nullptr;
 
+	~MapBlockAges() {
+		if (ages)
+			free(ages);
+	}
+};
+*/
 class Client;
 class ITextureSource;
 
@@ -113,6 +124,10 @@ public:
 
 	const MapDrawControl & getControl() const { return m_control; }
 	f32 getCameraFov() const { return m_camera_fov; }
+
+	u64 m_mapblock_texture_timestamp;
+
+//	MapBlockAges *getMapBlockAges() { return &m_mapblockages; };
 private:
 	Client *m_client;
 
@@ -127,6 +142,8 @@ private:
 	v3s16 m_camera_offset;
 
 	std::map<v3s16, MapBlock*> m_drawlist;
+//	MapBlockAges m_mapblockages;
+
 
 	std::set<v2s16> m_last_drawn_sectors;
 

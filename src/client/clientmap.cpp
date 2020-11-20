@@ -224,6 +224,132 @@ void ClientMap::updateDrawList()
 	g_profiler->avg("MapBlocks occlusion culled [#]", blocks_occlusion_culled);
 	g_profiler->avg("MapBlocks drawn [#]", m_drawlist.size());
 	g_profiler->avg("MapBlocks loaded [#]", blocks_loaded);
+
+// Impossible to resize texture. Beware, seems that texture size has to be a power of two.
+// Plan A - Have enough size and/or limit size to a number of blocks.
+//          Example : 1x262144 (eq 512x512) allows 1024 nodes square
+//          Pros : only one texture to manage
+//          Cons : limited range, many unused pixels (only few blocks in cube are visible)
+//                 in shader, complex calculation to find data in texture
+//
+// Plan A+ - Same as plan A but blocks indexed by pos instead of being in a mattrix.
+//           Pros : less data to store, less limitation on blocks quantity
+//           Cons : very complex calculation to find data in texture
+
+// Plan B - Have multiplke 9x9x9 textures, for each block, named (X,Y,Z)
+//          Pros : every pixel is used, no waste, less memory
+//                 very easy to retrieve data from shader
+//          Cons : howto manage unused textures ?
+
+// Nous ne sommes pas au bon endroit pour le plan B ! Les mesh sont déjà créées
+/*
+	IWritableTextureSource *tsrc = ((IWritableTextureSource *)m_client->getTextureSource());
+	video::IVideoDriver *driver = RenderingEngine::get_video_driver();
+	static u32 age = 0;
+
+// 1 create texture
+	video::ITexture *txt = tsrc->getTexture("__shaderPyrTexture");
+	if (!txt) {
+		printf("CREATE TEXTURE\n");
+
+		video::IImage *image = driver->createImage(
+			video::ECF_A8R8G8B8, core::dimension2d<u32>(1, 1));
+		sanity_check(image != NULL);
+		((IWritableTextureSource *)m_client->getTextureSource())->insertSourceImage("__shaderPyrTexture", image);
+		image->drop();
+		txt = tsrc->getTexture("__shaderPyrTexture");
+	}
+	sanity_check(txt != NULL);
+
+// 2 update texture with lock/unlock
+
+	u8 *pixels = (u8 *)txt->lock();
+	pixels[0] = age;
+	pixels[1] = age;
+	pixels[2] = age;
+	pixels[3] = age;
+
+	txt->unlock();
+
+	age+=32;
+	if (age > 255) age = 0;
+	printf("Age = %d\n", age);
+*/
+	if (g_settings->getBool("enable_shaders")) {
+		IWritableTextureSource *tsrc = ((IWritableTextureSource *)m_client->getTextureSource());
+		m_mapblock_texture_timestamp = porting::getTimeMs();
+printf("new m_mapblock_texture_timestamp=%ld\n", m_mapblock_texture_timestamp);
+		for (const auto &i : m_drawlist) {
+			v3s16 pos = i.first;
+			std::string tname = "__shaderMapblockTexture"
+				+ std::to_string(pos.X) + "_"
+				+ std::to_string(pos.Y) + "_"
+				+ std::to_string(pos.Z);
+
+			video::ITexture *txt = tsrc->getTexture(tname.c_str());
+			sanity_check(txt != NULL);
+			u64 age;
+			if (i.second->m_display_timestamp) {
+				age = m_mapblock_texture_timestamp - i.second->m_display_timestamp;
+				if (age > 255)
+					age = 255;
+			} else {
+				age = 1;
+				i.second->m_display_timestamp = m_mapblock_texture_timestamp;
+			}
+
+if (pos.X == 0 && pos.Z == 0) {
+	printf("clientmap blockage (y=%d)= %d\n", pos.Y, age);
+}
+
+			u8 *pixels = (u8 *)txt->lock();
+			pixels[0] = age;
+			pixels[1] = age;
+			pixels[2] = age;
+			pixels[3] = age;
+			txt->unlock();
+		}
+	}
+/*	{
+		v3s16 min = v3s16 (S16_MAX, S16_MAX, S16_MAX);
+		v3s16 max = v3s16 (S16_MIN, S16_MIN, S16_MIN);
+		u64 now = porting::getTimeMs();
+
+		// Compute offset and size
+		for (const auto &i : m_drawlist) {
+			v3s16 pos = i.first;
+			if (pos.X > max.X) max.X = pos.X;
+			if (pos.Y > max.Y) max.Y = pos.Y;
+			if (pos.Z > max.Z) max.Z = pos.Z;
+			if (pos.X < min.X) min.X = pos.X;
+			if (pos.Y < min.Y) min.Y = pos.Y;
+			if (pos.Z < min.Z) min.Z = pos.Z;
+		}
+
+		m_mapblockages.size = max - min;
+		m_mapblockages.offset = min;
+
+		if (m_mapblockages.ages) {
+			free(m_mapblockages.ages);
+			m_mapblockages.ages = nullptr;
+		}
+
+		u32 len = m_mapblockages.size.X * m_mapblockages.size.Y * m_mapblockages.size.Z;
+		m_mapblockages.ages = new s32[len];
+		// Fill ages (-1 = not loaded)
+		for (int i = 0; i < len; i++) {
+			m_mapblockages.ages[i] = -1;
+		}
+
+		// Create map
+		for (const auto &i : m_drawlist) {
+			v3s16 pos = i.first - m_mapblockages.offset;
+			if (i.second)
+ 				m_mapblockages.ages[pos.X + pos.Y * m_mapblockages.size.Y + pos.Z * m_mapblockages.size.Z * m_mapblockages.size.Y]
+					= now - i.second->getCreationTimestamp();
+		}
+	}
+*/
 }
 
 struct MeshBufList

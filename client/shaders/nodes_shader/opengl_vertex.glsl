@@ -142,7 +142,7 @@ void main(void)
 	vec4 color;
 	// The alpha gives the ratio of sunlight in the incoming light.
 	float nightRatio = 1.0 - inVertexColor.a;
-	color.rgb = inVertexColor.rgb * (inVertexColor.a * dayLight.rgb + 
+	color.rgb = inVertexColor.rgb * (inVertexColor.a * dayLight.rgb +
 		nightRatio * artificialLight.rgb) * 2.0;
 	color.a = 1.0;
 
@@ -153,4 +153,5 @@ void main(void)
 		0.07 * brightness);
 
 	varColor = clamp(color, 0.0, 1.0);
+
 }

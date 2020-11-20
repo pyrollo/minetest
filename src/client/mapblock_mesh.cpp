@@ -40,12 +40,11 @@ MeshMakeData::MeshMakeData(Client *client, bool use_shaders):
 	m_use_shaders(use_shaders)
 {}
 
-void MeshMakeData::fillBlockDataBegin(const v3s16 &blockpos, u64 timestamp)
+void MeshMakeData::fillBlockDataBegin(const v3s16 &blockpos)
 {
 	m_blockpos = blockpos;
 
 	v3s16 blockpos_nodes = m_blockpos*MAP_BLOCKSIZE;
-	m_timestamp = timestamp;
 
 	m_vmanip.clear();
 	VoxelArea voxel_area(blockpos_nodes - v3s16(1,1,1) * MAP_BLOCKSIZE,
@@ -65,7 +64,7 @@ void MeshMakeData::fillBlockData(const v3s16 &block_offset, MapNode *data)
 
 void MeshMakeData::fill(MapBlock *block)
 {
-	fillBlockDataBegin(block->getPos(), block->getCreationTimestamp());
+	fillBlockDataBegin(block->getPos());
 
 	fillBlockData(v3s16(0,0,0), block->getData());
 
@@ -1162,6 +1161,17 @@ MapBlockMesh::MapBlockMesh(MeshMakeData *data, v3s16 camera_offset):
 				if (p.layer.normal_texture)
 					material.setTexture(1, p.layer.normal_texture);
 				material.setTexture(2, p.layer.flags_texture);
+
+				// Add special mapblock texture for passing data to shader
+				std::string tname = "__shaderMapblockTexture"
+					+ std::to_string(data->m_blockpos.X) + "_"
+					+ std::to_string(data->m_blockpos.Y) + "_"
+					+ std::to_string(data->m_blockpos.Z);
+
+				video::ITexture *tex = m_tsrc->getTexture(tname);
+				sanity_check(tex != NULL);
+				material.setTexture(3, tex);
+
 			} else {
 				p.layer.applyMaterialOptions(material);
 			}
